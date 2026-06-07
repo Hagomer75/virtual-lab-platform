@@ -1,0 +1,1807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Virtual Science Lab — Platform</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0e1a; --surface: #111827; --surface2: #1a2236;
+    --border: rgba(99,179,237,0.15); --accent: #63b3ed; --accent2: #68d391;
+    --accent3: #f6ad55; --accent4: #b794f4; --danger: #fc8181;
+    --text: #e2e8f0; --muted: #718096;
+    --mono: 'Space Mono', monospace; --sans: 'DM Sans', sans-serif;
+  }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:10px 20px; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0; gap:12px; }
+  .logo { font-family:var(--mono); font-size:13px; color:var(--accent); letter-spacing:.1em; cursor:pointer; flex-shrink:0; }
+  .logo span { color:var(--muted); }
+  .header-center { display:flex; align-items:center; gap:6px; flex:1; justify-content:center; flex-wrap:wrap; }
+  .exp-tab { font-family:var(--mono); font-size:10px; padding:3px 12px; border:1px solid var(--border); border-radius:3px; background:transparent; color:var(--muted); cursor:pointer; letter-spacing:.04em; transition:all .2s; }
+  .exp-tab:hover { border-color:var(--accent); color:var(--accent); }
+  .exp-tab.active { background:var(--accent); color:var(--bg); border-color:var(--accent); font-weight:700; }
+  .section-sep { font-family:var(--mono); font-size:9px; color:var(--muted); padding:0 4px; }
+  .status-bar { display:flex; gap:16px; align-items:center; font-size:12px; color:var(--muted); font-family:var(--mono); flex-shrink:0; }
+  .status-dot { width:7px; height:7px; border-radius:50%; background:var(--accent2); box-shadow:0 0 6px var(--accent2); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .page { display:none; flex:1; overflow:hidden; flex-direction:column; }
+  .page.active { display:flex; }
+  /* HOME */
+  #page-home { overflow-y:auto; }
+  .home-inner { padding:44px 60px; max-width:1200px; margin:0 auto; width:100%; }
+  .home-hero { text-align:center; margin-bottom:44px; }
+  .home-hero h1 { font-family:var(--mono); font-size:20px; color:var(--accent); letter-spacing:.1em; margin-bottom:10px; }
+  .home-hero p { color:var(--muted); font-size:12px; max-width:520px; margin:0 auto; line-height:1.75; }
+  .lab-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+  .lab-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:22px 20px; cursor:pointer; transition:all .22s; position:relative; overflow:hidden; }
+  .lab-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--card-color,var(--accent)); opacity:.55; transition:opacity .22s; }
+  .lab-card:hover { border-color:var(--card-color,var(--accent)); transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,.35); }
+  .lab-card:hover::before { opacity:1; }
+  .card-icon { font-size:30px; display:block; margin-bottom:12px; }
+  .card-title { font-family:var(--mono); font-size:11px; color:var(--text); letter-spacing:.06em; margin-bottom:8px; }
+  .card-desc { font-size:11px; color:var(--muted); line-height:1.65; margin-bottom:14px; }
+  .card-exps { display:flex; flex-wrap:wrap; gap:5px; }
+  .card-exp-tag { font-family:var(--mono); font-size:9px; padding:2px 7px; border-radius:2px; border:1px solid var(--card-color,var(--accent)); color:var(--card-color,var(--accent)); opacity:.7; }
+  .card-count { position:absolute; top:12px; right:14px; font-family:var(--mono); font-size:9px; color:var(--muted); }
+  /* LAB */
+  .lab-main { display:flex; flex:1; overflow:hidden; }
+  #canvas-wrap { flex:1; position:relative; overflow:hidden; }
+  #lab-canvas-3d, #lab-canvas-2d { position:absolute; top:0; left:0; width:100%; height:100%; display:none; }
+  #lab-canvas-3d.active, #lab-canvas-2d.active { display:block; }
+  .overlay-label { position:absolute; background:rgba(10,14,26,.85); border:1px solid var(--border); border-radius:4px; padding:4px 8px; font-family:var(--mono); font-size:10px; color:var(--accent); pointer-events:none; backdrop-filter:blur(4px); display:none; }
+  .overlay-label.vis { display:block; }
+  .sidebar { width:260px; background:var(--surface); border-left:1px solid var(--border); display:flex; flex-direction:column; overflow-y:auto; flex-shrink:0; }
+  .panel { border-bottom:1px solid var(--border); padding:14px 16px; }
+  .panel-title { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.12em; text-transform:uppercase; margin-bottom:12px; }
+  .experiment-title { font-size:14px; font-weight:500; color:var(--text); line-height:1.4; margin-bottom:6px; }
+  .experiment-desc { font-size:12px; color:var(--muted); line-height:1.6; }
+  .steps-list { list-style:none; display:flex; flex-direction:column; gap:8px; }
+  .step { display:flex; gap:10px; align-items:flex-start; font-size:12px; color:var(--muted); transition:color .3s; }
+  .step.active { color:var(--text); }
+  .step.done { color:var(--accent2); text-decoration:line-through; opacity:.7; }
+  .step-num { font-family:var(--mono); font-size:10px; min-width:18px; height:18px; border-radius:50%; border:1px solid currentColor; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+  .step.done .step-num { background:var(--accent2); border-color:var(--accent2); color:#0a0e1a; }
+  .step.active .step-num { border-color:var(--accent); color:var(--accent); }
+  .controls-grid { display:flex; flex-direction:column; gap:12px; }
+  .ctrl-row { display:flex; flex-direction:column; gap:5px; }
+  .ctrl-label { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--muted); }
+  .ctrl-label span { font-family:var(--mono); font-size:11px; color:var(--accent); }
+  input[type=range] { -webkit-appearance:none; width:100%; height:3px; background:var(--surface2); border-radius:2px; outline:none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:var(--accent); cursor:pointer; box-shadow:0 0 6px var(--accent); }
+  select { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:3px; color:var(--text); font-family:var(--mono); font-size:10px; padding:5px 8px; outline:none; cursor:pointer; }
+  .btn { width:100%; padding:9px 14px; border:1px solid var(--border); border-radius:4px; background:transparent; color:var(--text); font-family:var(--mono); font-size:11px; letter-spacing:.05em; cursor:pointer; transition:all .2s; text-align:left; }
+  .btn:hover { background:var(--surface2); border-color:var(--accent); color:var(--accent); }
+  .btn.primary { background:var(--accent); color:var(--bg); border-color:var(--accent); font-weight:700; }
+  .btn.primary:hover { background:#4299e1; }
+  .btn.danger { border-color:var(--danger); color:var(--danger); }
+  .btn.danger:hover { background:rgba(252,129,129,.1); }
+  .reading-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .reading-card { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:8px 10px; }
+  .reading-label { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-bottom:3px; }
+  .reading-value { font-family:var(--mono); font-size:16px; font-weight:700; color:var(--accent); }
+  .reading-value.hot { color:var(--danger); } .reading-value.good { color:var(--accent2); } .reading-value.warn { color:var(--accent3); }
+  .reading-unit { font-size:10px; color:var(--muted); margin-left:2px; }
+  .log-box { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:8px 10px; font-family:var(--mono); font-size:10px; color:var(--muted); line-height:1.8; max-height:90px; overflow-y:auto; }
+  .log-box .log-entry { color:var(--accent2); } .log-box .log-warn { color:var(--accent3); } .log-box .log-err { color:var(--danger); }
+  .hint-box { background:rgba(99,179,237,.07); border:1px solid rgba(99,179,237,.2); border-radius:4px; padding:8px 10px; font-size:11px; color:var(--accent); line-height:1.6; }
+  #progress-bar-wrap { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:10px; background:rgba(10,14,26,.85); border:1px solid var(--border); border-radius:6px; padding:8px 14px; backdrop-filter:blur(6px); font-family:var(--mono); font-size:11px; color:var(--muted); min-width:280px; }
+  #progress-track { flex:1; height:4px; background:var(--surface2); border-radius:2px; overflow:hidden; }
+  #progress-fill { height:100%; background:var(--accent2); border-radius:2px; width:0%; transition:width .5s ease; }
+  .axes-hint { position:absolute; bottom:50px; left:14px; font-family:var(--mono); font-size:9px; color:var(--muted); line-height:1.9; opacity:.7; white-space:pre; pointer-events:none; }
+  ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:var(--surface2); border-radius:2px; }
+  /* P1 — home progress badge */
+  .card-progress { position:absolute; bottom:12px; right:14px; font-family:var(--mono); font-size:9px; color:var(--muted); border:1px solid var(--border); border-radius:10px; padding:1px 8px; }
+  .card-progress.complete { color:var(--accent2); border-color:var(--accent2); }
+  /* P1 — header buttons */
+  .hdr-btn { font-family:var(--mono); font-size:10px; padding:3px 10px; border:1px solid var(--border); border-radius:3px; background:transparent; color:var(--muted); cursor:pointer; letter-spacing:.04em; transition:all .2s; }
+  .hdr-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .hdr-btn.on { border-color:var(--accent2); color:var(--accent2); }
+  /* P1 — quiz */
+  .quiz-q { margin-bottom:14px; }
+  .quiz-q-text { font-size:12px; color:var(--text); line-height:1.5; margin-bottom:8px; }
+  .quiz-opt { display:flex; gap:8px; align-items:flex-start; font-size:11px; color:var(--muted); padding:5px 8px; border:1px solid var(--border); border-radius:4px; margin-bottom:5px; cursor:pointer; transition:all .15s; }
+  .quiz-opt:hover { border-color:var(--accent); color:var(--text); }
+  .quiz-opt.sel { border-color:var(--accent); color:var(--text); background:rgba(99,179,237,.08); }
+  .quiz-opt.correct { border-color:var(--accent2); color:var(--accent2); background:rgba(104,211,145,.1); }
+  .quiz-opt.wrong { border-color:var(--danger); color:var(--danger); background:rgba(252,129,129,.1); }
+  .quiz-explain { font-size:10px; color:var(--muted); line-height:1.5; margin-top:4px; padding-left:4px; border-left:2px solid var(--border); }
+  .quiz-score { font-family:var(--mono); font-size:13px; color:var(--accent2); text-align:center; padding:8px; }
+  .quiz-locked { font-size:11px; color:var(--muted); line-height:1.6; text-align:center; padding:6px; }
+  /* P1 — graph */
+  #graph-canvas { width:100%; height:120px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; display:block; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" onclick="showHome()">⬡ VIRTUAL<span>LAB</span> <span style="color:var(--accent2);margin-left:6px">PLATFORM v2</span></div>
+  <div class="header-center" id="header-center"></div>
+  <div class="status-bar">
+    <button class="hdr-btn" id="mode-btn" onclick="toggleMode()" title="Guided locks the quiz until you finish all steps. Free unlocks everything.">🎓 GUIDED</button>
+    <button class="hdr-btn" id="reset-btn" onclick="resetProgress()" title="Clear saved completion + scores">RESET</button>
+    <div class="status-dot"></div><span id="status-text">SYSTEM READY</span>
+  </div>
+</header>
+
+<!-- HOME -->
+<div class="page active" id="page-home">
+  <div class="home-inner">
+    <div class="home-hero">
+      <h1>⬡ VIRTUAL SCIENCE LAB PLATFORM</h1>
+      <p>Interactive simulation environment for biology, thermodynamics, electricity, chemistry, and physics. Powered by Three.js WebGL and HTML5 Canvas.</p>
+    </div>
+    <div class="lab-grid">
+      <div class="lab-card" style="--card-color:#68d391" onclick="openSection('biology')">
+        <span class="card-count">2 experiments</span>
+        <span class="card-icon">🧬</span>
+        <div class="card-title">CELL BIOLOGY</div>
+        <div class="card-desc">Observe osmosis across a semi-permeable membrane and step through mitosis with animated chromosome movement.</div>
+        <div class="card-exps"><span class="card-exp-tag">Osmosis</span><span class="card-exp-tag">Mitosis</span></div>
+      </div>
+      <div class="lab-card" style="--card-color:#f6ad55" onclick="openSection('thermo')">
+        <span class="card-count">2 experiments</span>
+        <span class="card-icon">🌡️</span>
+        <div class="card-title">THERMODYNAMICS</div>
+        <div class="card-desc">Verify PV=nRT with bouncing particle simulations and watch heat diffuse through copper, steel, and glass.</div>
+        <div class="card-exps"><span class="card-exp-tag">Ideal Gas Law</span><span class="card-exp-tag">Heat Conduction</span></div>
+      </div>
+      <div class="lab-card" style="--card-color:#63b3ed" onclick="openSection('electricity')">
+        <span class="card-count">2 experiments</span>
+        <span class="card-icon">⚡</span>
+        <div class="card-title">ELECTRICITY & MAGNETISM</div>
+        <div class="card-desc">Prove Ohm's Law with animated current flow and a glowing bulb. Explore Faraday induction with a draggable magnet.</div>
+        <div class="card-exps"><span class="card-exp-tag">Ohm's Law</span><span class="card-exp-tag">EM Induction</span></div>
+      </div>
+      <div class="lab-card" style="--card-color:#b794f4" onclick="openSection('chemistry')">
+        <span class="card-count">2 experiments · 3D</span>
+        <span class="card-icon">⚗️</span>
+        <div class="card-title">CHEMISTRY</div>
+        <div class="card-desc">Full 3D WebGL lab — acid-base titration with Erlenmeyer flask and pH colour shift, plus electrolysis of water.</div>
+        <div class="card-exps"><span class="card-exp-tag">Acid-Base Titration</span><span class="card-exp-tag">Electrolysis</span></div>
+      </div>
+      <div class="lab-card" style="--card-color:#fc8181" onclick="openSection('physics')">
+        <span class="card-count">2 experiments</span>
+        <span class="card-icon">🔭</span>
+        <div class="card-title">PHYSICS</div>
+        <div class="card-desc">Launch projectiles and trace parabolic trajectories. Visualise constructive and destructive wave interference patterns.</div>
+        <div class="card-exps"><span class="card-exp-tag">Projectile Motion</span><span class="card-exp-tag">Wave Interference</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LAB -->
+<div class="page" id="page-lab">
+  <div class="lab-main">
+    <div id="canvas-wrap">
+      <canvas id="lab-canvas-3d"></canvas>
+      <canvas id="lab-canvas-2d"></canvas>
+      <div class="overlay-label" id="lbl-a"></div>
+      <div class="overlay-label" id="lbl-b"></div>
+      <div class="overlay-label" id="lbl-c"></div>
+      <div class="overlay-label" id="lbl-d"></div>
+      <div id="progress-bar-wrap">
+        <span>EXPERIMENT PROGRESS</span>
+        <div id="progress-track"><div id="progress-fill"></div></div>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="axes-hint" id="axes-hint"></div>
+    </div>
+    <div class="sidebar">
+      <div class="panel"><div class="panel-title">Experiment</div><div class="experiment-title" id="exp-title">—</div><div class="experiment-desc" id="exp-desc" style="margin-top:6px"></div></div>
+      <div class="panel"><div class="panel-title">Procedure Steps</div><ul class="steps-list" id="steps-list"></ul></div>
+      <div class="panel"><div class="panel-title">Controls</div><div class="controls-grid" id="controls-container"></div></div>
+      <div class="panel"><div class="panel-title">Live Readings</div><div class="reading-grid" id="reading-grid"></div></div>
+      <div class="panel"><div class="panel-title">Lab Log</div><div class="log-box" id="log-box"></div></div>
+      <div class="panel"><div class="panel-title">Hint</div><div class="hint-box" id="hint-box"></div></div>
+      <div class="panel" id="graph-panel"><div class="panel-title">Data Plot <button class="hdr-btn" style="float:right;margin-top:-2px" onclick="exportCSV()">⬇ CSV</button></div><canvas id="graph-canvas"></canvas></div>
+      <div class="panel" id="quiz-panel"><div class="panel-title">Assessment</div><div id="quiz-body"></div></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+// APP CORE
+// ═══════════════════════════════════════════════════════════════
+const APP = { currentExpId: null, animId: null };
+const lerp = (a,b,t) => a+(b-a)*t;
+const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
+const rnd = (a,b) => a+Math.random()*(b-a);
+
+function showHome() {
+  stopCurrent();
+  document.getElementById('page-home').classList.add('active');
+  document.getElementById('page-lab').classList.remove('active');
+  document.getElementById('header-center').innerHTML = '';
+  document.getElementById('status-text').textContent = 'SYSTEM READY';
+}
+
+function openSection(sid) {
+  const sec = SECTIONS[sid];
+  document.getElementById('page-home').classList.remove('active');
+  document.getElementById('page-lab').classList.add('active');
+  document.getElementById('header-center').innerHTML =
+    `<span style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-right:2px">${sec.icon}</span>` +
+    `<span style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-right:8px">${sec.label}</span>` +
+    sec.exps.map((id,i)=>`<button class="exp-tab${i===0?' active':''}" onclick="loadExp('${id}')">${EXPERIMENTS[id].shortName}</button>`).join('');
+  loadExp(sec.exps[0]);
+}
+
+function loadExp(expId) {
+  stopCurrent();
+  APP.currentExpId = expId;
+  APP._completedThisLoad = false;
+  const exp = EXPERIMENTS[expId];
+  document.querySelectorAll('.exp-tab').forEach(b => b.classList.toggle('active', b.textContent===exp.shortName));
+  document.getElementById('status-text').textContent = exp.badge;
+  // overlay labels
+  ['lbl-a','lbl-b','lbl-c','lbl-d'].forEach(id => { const e=document.getElementById(id); e.classList.remove('vis'); e.textContent=''; });
+  (exp.labels||[]).forEach(({id,text,top,left}) => { const e=document.getElementById(id); if(e){e.textContent=text;e.style.top=top;e.style.left=left;e.classList.add('vis');} });
+  document.getElementById('axes-hint').textContent = exp.axesHint||'';
+  document.getElementById('exp-title').textContent = exp.title;
+  document.getElementById('exp-desc').textContent = exp.desc;
+  document.getElementById('steps-list').innerHTML = exp.steps.map((s,i)=>
+    `<li class="step ${i===0?'active':''}" data-step="${i}"><div class="step-num">${i+1}</div><span>${s}</span></li>`).join('');
+  document.getElementById('controls-container').innerHTML = exp.controlsHTML||'';
+  document.getElementById('reading-grid').innerHTML = (exp.readings||[]).map(r=>
+    `<div class="reading-card"><div class="reading-label">${r.label}</div><div class="reading-value${r.cls?' '+r.cls:''}" id="${r.id}">${r.init||'0'}<span class="reading-unit">${r.unit||''}</span></div></div>`).join('');
+  document.getElementById('log-box').innerHTML =
+    '<div>&gt; System initialized</div><div>&gt; Lab environment loaded</div>' +
+    `<div class="log-entry">&gt; ${exp.shortName} — awaiting start...</div>`;
+  document.getElementById('hint-box').textContent = exp.hints[0];
+  document.getElementById('progress-fill').style.width='0%';
+  document.getElementById('progress-pct').textContent='0%';
+  exp.init();
+  // P1: data logging + quiz + mode
+  startLogger();
+  renderQuiz(expId);
+  applyMode();
+}
+
+function stopCurrent() {
+  if(APP.animId){cancelAnimationFrame(APP.animId);APP.animId=null;}
+  stopLogger();
+  if(APP.currentExpId&&EXPERIMENTS[APP.currentExpId].cleanup) EXPERIMENTS[APP.currentExpId].cleanup();
+}
+
+function addLog(msg,cls){
+  const box=document.getElementById('log-box');
+  const d=document.createElement('div'); d.textContent='> '+msg;
+  if(cls) d.className=cls; box.appendChild(d); box.scrollTop=box.scrollHeight;
+}
+
+function setStep(idx,hints){
+  const steps=document.querySelectorAll('.step');
+  steps.forEach((el,i)=>{el.className='step';if(i<idx)el.classList.add('done');else if(i===idx)el.classList.add('active');});
+  if(hints) document.getElementById('hint-box').textContent=hints[Math.min(idx,hints.length-1)];
+  const tot=steps.length; const pct=idx>=tot-1?100:Math.round(idx*100/(tot-1));
+  document.getElementById('progress-fill').style.width=pct+'%';
+  document.getElementById('progress-pct').textContent=pct+'%';
+  if(pct>=100) onExpComplete();
+}
+
+function finishExp(){ document.getElementById('progress-fill').style.width='100%'; document.getElementById('progress-pct').textContent='100%'; onExpComplete(); }
+
+// ═══════════════════════════════════════════════════════════════
+// P1 — PROGRESS STORE (localStorage)
+// ═══════════════════════════════════════════════════════════════
+const PROGRESS_KEY='vlab.progress';
+function loadProgress(){ try{return JSON.parse(localStorage.getItem(PROGRESS_KEY))||{};}catch(e){return {};} }
+function saveProgress(p){ localStorage.setItem(PROGRESS_KEY,JSON.stringify(p)); }
+function markComplete(expId,score){
+  const p=loadProgress(); const cur=p[expId]||{};
+  p[expId]={completed:true,bestScore:Math.max(cur.bestScore||0,score||0),lastVisit:new Date().toISOString().slice(0,10)};
+  saveProgress(p); updateHomeBadges();
+}
+function onExpComplete(){
+  if(!APP.currentExpId) return;
+  if(!APP._completedThisLoad){ APP._completedThisLoad=true; markComplete(APP.currentExpId,0); addLog('Procedure complete — assessment unlocked','log-entry'); applyMode(); }
+}
+function updateHomeBadges(){
+  const p=loadProgress();
+  document.querySelectorAll('.lab-card').forEach(card=>{
+    const oc=card.getAttribute('onclick')||''; const m=oc.match(/openSection\('(\w+)'\)/); if(!m) return;
+    const sec=SECTIONS[m[1]]; if(!sec) return;
+    const done=sec.exps.filter(e=>p[e]&&p[e].completed).length;
+    let b=card.querySelector('.card-progress');
+    if(!b){ b=document.createElement('div'); b.className='card-progress'; card.appendChild(b); }
+    b.textContent=done+'/'+sec.exps.length+' ✓';
+    b.classList.toggle('complete',done===sec.exps.length);
+  });
+}
+function resetProgress(){
+  if(!confirm('Clear all saved completion and quiz scores?')) return;
+  localStorage.removeItem(PROGRESS_KEY); updateHomeBadges();
+  if(APP.currentExpId){ APP._completedThisLoad=false; renderQuiz(APP.currentExpId); applyMode(); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// P1 — GUIDED / FREE MODE
+// ═══════════════════════════════════════════════════════════════
+APP.mode = localStorage.getItem('vlab.mode')||'guided';
+function renderModeBtn(){
+  const b=document.getElementById('mode-btn'); if(!b) return;
+  if(APP.mode==='free'){ b.textContent='🔧 FREE'; b.classList.add('on'); }
+  else { b.textContent='🎓 GUIDED'; b.classList.remove('on'); }
+}
+function toggleMode(){
+  APP.mode=APP.mode==='guided'?'free':'guided';
+  localStorage.setItem('vlab.mode',APP.mode); renderModeBtn();
+  if(APP.currentExpId){ renderQuiz(APP.currentExpId); applyMode(); }
+}
+function applyMode(){
+  // Free mode always reveals the quiz; guided requires completion.
+  renderQuiz(APP.currentExpId);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// P1 — DATA LOGGER + GRAPH + CSV
+// ═══════════════════════════════════════════════════════════════
+function startLogger(){
+  stopLogger();
+  APP.log={t:[],series:{},labels:{},t0:performance.now()};
+  APP.logTimer=setInterval(sampleData,200);
+}
+function stopLogger(){ if(APP.logTimer){clearInterval(APP.logTimer);APP.logTimer=null;} }
+function sampleData(){
+  if(!APP.log) return;
+  const t=(performance.now()-APP.log.t0)/1000;
+  let any=false;
+  document.querySelectorAll('#reading-grid .reading-card').forEach(card=>{
+    const valEl=card.querySelector('.reading-value'); if(!valEl) return;
+    const id=valEl.id||card.querySelector('.reading-label').textContent;
+    const num=parseFloat((valEl.textContent||'').replace(/[^0-9.\-]/g,''));
+    if(isNaN(num)) return; any=true;
+    if(!APP.log.series[id]){ APP.log.series[id]=[]; APP.log.labels[id]=card.querySelector('.reading-label').textContent; }
+    APP.log.series[id].push(num);
+  });
+  if(any){ APP.log.t.push(+t.toFixed(2)); if(APP.log.t.length>600){APP.log.t.shift();Object.values(APP.log.series).forEach(a=>a.shift());} drawGraph(); }
+}
+function drawGraph(){
+  const c=document.getElementById('graph-canvas'); if(!c||!APP.log) return;
+  const W=c.width=c.clientWidth||220, H=c.height=120, ctx=c.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  const keys=Object.keys(APP.log.series).slice(0,2);
+  const cols=['#63b3ed','#68d391'], pad=6;
+  ctx.strokeStyle='rgba(99,179,237,.12)'; ctx.lineWidth=1;
+  ctx.strokeRect(pad,pad,W-2*pad,H-2*pad);
+  keys.forEach((k,ki)=>{
+    const a=APP.log.series[k]; if(a.length<2) return;
+    let mn=Math.min(...a),mx=Math.max(...a); if(mx-mn<1e-9){mx=mn+1;}
+    ctx.beginPath(); ctx.strokeStyle=cols[ki]; ctx.lineWidth=1.5;
+    a.forEach((v,i)=>{
+      const x=pad+(W-2*pad)*(i/(a.length-1));
+      const y=H-pad-(H-2*pad)*((v-mn)/(mx-mn));
+      i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+    });
+    ctx.stroke();
+    ctx.fillStyle=cols[ki]; ctx.font='8px Space Mono'; ctx.textAlign='left';
+    ctx.fillText(APP.log.labels[k],pad+4,pad+10+ki*10);
+  });
+  if(!keys.length){ ctx.fillStyle='#718096'; ctx.font='9px Space Mono'; ctx.textAlign='center'; ctx.fillText('collecting data…',W/2,H/2); }
+}
+function exportCSV(){
+  if(!APP.log||!APP.log.t.length){ alert('No data captured yet — run the experiment first.'); return; }
+  const keys=Object.keys(APP.log.series);
+  let csv='time_s,'+keys.map(k=>APP.log.labels[k].replace(/,/g,'')).join(',')+'\n';
+  APP.log.t.forEach((t,i)=>{ csv+=t+','+keys.map(k=>APP.log.series[k][i]??'').join(',')+'\n'; });
+  const blob=new Blob([csv],{type:'text/csv'}), url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=(APP.currentExpId||'exp').replace('/','-')+'.csv'; a.click();
+  URL.revokeObjectURL(url); addLog('Data exported to CSV','log-entry');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// P1 — QUIZ ENGINE
+// ═══════════════════════════════════════════════════════════════
+function renderQuiz(expId){
+  const body=document.getElementById('quiz-body'), panel=document.getElementById('quiz-panel');
+  const quiz=QUIZZES[expId];
+  if(!quiz){ panel.style.display='none'; return; }
+  panel.style.display='block';
+  const prog=loadProgress()[expId]||{};
+  const unlocked = APP.mode==='free' || prog.completed || APP._completedThisLoad;
+  if(!unlocked){
+    body.innerHTML='<div class="quiz-locked">🔒 Complete all procedure steps to unlock the assessment — or switch to <b>Free</b> mode.</div>';
+    return;
+  }
+  APP._quizSel={};
+  body.innerHTML = quiz.map((q,qi)=>
+    `<div class="quiz-q" data-q="${qi}"><div class="quiz-q-text">${qi+1}. ${q.q}</div>`+
+    q.options.map((o,oi)=>`<div class="quiz-opt" data-q="${qi}" data-o="${oi}" onclick="selOpt(${qi},${oi})">${o}</div>`).join('')+
+    `</div>`).join('') +
+    `<button class="btn primary" onclick="submitQuiz('${expId}')">SUBMIT ANSWERS</button>`+
+    (prog.bestScore?`<div class="quiz-score">Best: ${prog.bestScore}%</div>`:'');
+}
+function selOpt(qi,oi){
+  if(!APP._quizSel) APP._quizSel={};
+  APP._quizSel[qi]=oi;
+  document.querySelectorAll(`.quiz-opt[data-q="${qi}"]`).forEach(el=>el.classList.toggle('sel',+el.dataset.o===oi));
+}
+function submitQuiz(expId){
+  const quiz=QUIZZES[expId]; let correct=0;
+  quiz.forEach((q,qi)=>{
+    const sel=APP._quizSel?APP._quizSel[qi]:undefined;
+    if(sel===q.answer) correct++;
+    document.querySelectorAll(`.quiz-opt[data-q="${qi}"]`).forEach(el=>{
+      const oi=+el.dataset.o; el.onclick=null;
+      if(oi===q.answer) el.classList.add('correct');
+      else if(oi===sel) el.classList.add('wrong');
+    });
+    const qEl=document.querySelector(`.quiz-q[data-q="${qi}"]`);
+    if(qEl && q.explain){ const ex=document.createElement('div'); ex.className='quiz-explain'; ex.textContent=q.explain; qEl.appendChild(ex); }
+  });
+  const score=Math.round(correct*100/quiz.length);
+  markComplete(expId,score);
+  const sb=document.querySelector('#quiz-body .btn'); if(sb) sb.outerHTML=`<div class="quiz-score">Score: ${score}% (${correct}/${quiz.length})</div>`;
+  addLog('Quiz submitted — '+score+'%', score>=60?'log-entry':'log-warn');
+}
+
+function rv(id,val,cls){
+  const el=document.getElementById(id); if(!el)return;
+  const u=el.querySelector('.reading-unit');
+  el.className='reading-value'+(cls?' '+cls:'');
+  el.textContent=val; if(u)el.appendChild(u);
+}
+
+function setup2D(){
+  const c2=document.getElementById('lab-canvas-2d'),c3=document.getElementById('lab-canvas-3d');
+  c2.classList.add('active'); c3.classList.remove('active');
+  const W=c2.parentElement.clientWidth, H=c2.parentElement.clientHeight;
+  c2.width=W; c2.height=H;
+  return {canvas:c2,ctx:c2.getContext('2d'),W,H};
+}
+function setup3D(){
+  const c2=document.getElementById('lab-canvas-2d'),c3=document.getElementById('lab-canvas-3d');
+  c3.classList.add('active'); c2.classList.remove('active'); return c3;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BIOLOGY — OSMOSIS
+// ═══════════════════════════════════════════════════════════════
+const OsmosisExp = {
+  shortName:'Osmosis', badge:'EXP-B01: OSMOSIS',
+  title:'Osmosis Across a Semi-Permeable Membrane',
+  desc:'Observe net water movement through a selectively permeable membrane from low to high solute concentration.',
+  steps:['Fill left chamber with NaCl solution','Fill right chamber with distilled water','Open membrane pores — observe osmosis','Watch water levels reach osmotic equilibrium','Record osmotic pressure using van\'t Hoff equation'],
+  hints:[
+    'Start by adding NaCl to the left chamber. Higher concentration means stronger osmotic pull.',
+    'Right chamber now contains distilled water. The concentration gradient is maximal.',
+    'Pores are open — water moves from right (low) to left (high) solute side.',
+    'Watch the left water level rise. Rate depends on pore size and temperature.',
+    '🎉 Equilibrium reached! Osmotic pressure π = iMRT = '+''+'.'
+  ],
+  axesHint:'',
+  labels:[],
+  readings:[
+    {id:'r-lconc',label:'Left Conc.',unit:'M',init:'2.0'},
+    {id:'r-rconc',label:'Right Conc.',unit:'M',init:'0.0'},
+    {id:'r-opress',label:'Osm. Press.',unit:'atm',init:'0.0'},
+    {id:'r-flux',label:'Net Flux',unit:'mL/s',init:'0.0',cls:'good'},
+  ],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">NaCl Concentration <span id="os-conc-v">2.0 M</span></div><input type="range" id="os-conc" min="0" max="5" step="0.1" value="2"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Pore Size <span id="os-pore-v">3</span></div><input type="range" id="os-pore" min="1" max="5" step="1" value="3"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Temperature <span id="os-temp-v">25°C</span></div><input type="range" id="os-temp" min="5" max="45" step="1" value="25"></div>
+    <button class="btn primary" id="os-next">▶ NEXT STEP</button>
+    <button class="btn danger" id="os-reset">↺ RESET</button>`,
+  st:{},
+  init(){
+    const {ctx,W,H}=setup2D(); this._W=W; this._H=H; this._ctx=ctx;
+    this.st={step:0,running:false,leftWater:0.5,rightWater:0.5,leftConc:2,rightConc:0,pore:3,temp:25,eq:false,particles:[],time:0};
+    this._makeParticles();
+    document.getElementById('os-conc').oninput=e=>{this.st.leftConc=+e.target.value;document.getElementById('os-conc-v').textContent=e.target.value+' M';};
+    document.getElementById('os-pore').oninput=e=>{this.st.pore=+e.target.value;document.getElementById('os-pore-v').textContent=e.target.value;};
+    document.getElementById('os-temp').oninput=e=>{this.st.temp=+e.target.value;document.getElementById('os-temp-v').textContent=e.target.value+'°C';};
+    document.getElementById('os-next').onclick=()=>this._next();
+    document.getElementById('os-reset').onclick=()=>this._reset();
+    let last=0;
+    const loop=t=>{APP.animId=requestAnimationFrame(loop);const dt=Math.min((t-last)/1000,.05);last=t;this._update(dt);this._draw();};
+    APP.animId=requestAnimationFrame(loop);
+  },
+  _makeParticles(){
+    const W=this._W,H=this._H,p=[],CX=W/2,Y0=80,Y1=H-50,CH=Y1-Y0;
+    for(let i=0;i<55;i++) p.push({x:rnd(24,CX-20),y:rnd(Y0+10,Y1-10),vx:rnd(-1,1),vy:rnd(-1,1),type:'solute',side:'L',r:7,c:'#fc8181'});
+    for(let i=0;i<90;i++) p.push({x:rnd(24,CX-20),y:rnd(Y0+10,Y1-10),vx:rnd(-2,2),vy:rnd(-2,2),type:'water',side:'L',r:3,c:'#63b3ed'});
+    for(let i=0;i<10;i++) p.push({x:rnd(CX+20,W-24),y:rnd(Y0+10,Y1-10),vx:rnd(-1,1),vy:rnd(-1,1),type:'solute',side:'R',r:7,c:'#f6ad55'});
+    for(let i=0;i<110;i++) p.push({x:rnd(CX+20,W-24),y:rnd(Y0+10,Y1-10),vx:rnd(-2,2),vy:rnd(-2,2),type:'water',side:'R',r:3,c:'#4d96ff'});
+    this.st.particles=p;
+  },
+  _next(){
+    const s=this.st;
+    if(s.step===0){addLog('Left chamber: NaCl '+s.leftConc+'M added','log-entry');setStep(1,this.hints);}
+    else if(s.step===1){addLog('Right chamber filled with distilled water','log-entry');setStep(2,this.hints);}
+    else if(s.step===2){s.running=true;addLog('Membrane pores opened (size '+s.pore+')','log-entry');setStep(3,this.hints);}
+    else if(s.step===3&&s.eq){setStep(4,this.hints);finishExp();}
+    else if(s.step===3){addLog('Not at equilibrium yet — wait','log-warn');}
+  },
+  _reset(){
+    this.st={step:0,running:false,leftWater:0.5,rightWater:0.5,leftConc:+document.getElementById('os-conc').value,rightConc:0,pore:+document.getElementById('os-pore').value,temp:+document.getElementById('os-temp').value,eq:false,particles:[],time:0};
+    this._makeParticles(); setStep(0,this.hints);
+    document.getElementById('progress-fill').style.width='0%'; document.getElementById('progress-pct').textContent='0%';
+    addLog('Experiment reset','log-warn');
+  },
+  _update(dt){
+    const s=this.st,W=this._W,H=this._H,CX=W/2,Y0=80,Y1=H-50,spd=1+s.temp/20;
+    s.particles.forEach(p=>{
+      p.x+=p.vx*spd*dt*60; p.y+=p.vy*spd*dt*60;
+      const minX=p.side==='L'?24:CX+16, maxX=p.side==='L'?CX-16:W-24;
+      if(p.x<minX){p.x=minX;p.vx*=-1;} if(p.x>maxX){p.x=maxX;p.vx*=-1;}
+      if(p.y<Y0+8){p.y=Y0+8;p.vy*=-1;} if(p.y>Y1-8){p.y=Y1-8;p.vy*=-1;}
+      p.vx+=(Math.random()-.5)*.3; p.vy+=(Math.random()-.5)*.3;
+      const sp=Math.hypot(p.vx,p.vy); if(sp>3){p.vx*=3/sp;p.vy*=3/sp;}
+    });
+    if(s.running){
+      s.time+=dt;
+      const diff=s.leftConc-s.rightConc;
+      if(Math.abs(diff)>0.05){
+        const rate=diff*s.pore*.004*(s.temp/25);
+        s.leftWater=Math.min(.85,s.leftWater+rate*dt);
+        s.rightWater=Math.max(.15,s.rightWater-rate*dt);
+        // concentration increases in shrinking side
+        const base=s.leftConc; s.rightConc=clamp(base*(.5/s.rightWater)*.1,0,s.leftConc*.9);
+        const flux=diff*s.pore*.02;
+        rv('r-flux',flux.toFixed(2),'good');
+      } else if(!s.eq){
+        s.eq=true; addLog('⚡ EQUILIBRIUM reached!','log-entry');
+        addLog('Osmotic pressure: '+(2*s.leftConc*0.0821*(s.temp+273)).toFixed(1)+' atm','log-entry');
+      }
+      const pi=(2*s.leftConc*0.0821*(s.temp+273)).toFixed(1);
+      rv('r-lconc',s.leftConc.toFixed(1),''); rv('r-rconc',s.rightConc.toFixed(2),'');
+      rv('r-opress',pi,'warn');
+    }
+  },
+  _draw(){
+    const ctx=this._ctx,W=this._W,H=this._H,s=this.st,CX=W/2,Y0=80,Y1=H-50,CH=Y1-Y0;
+    ctx.fillStyle='#0a0e1a'; ctx.fillRect(0,0,W,H);
+    // Left chamber water fill
+    const lh=CH*s.leftWater; const rh=CH*s.rightWater;
+    ctx.fillStyle='rgba(49,130,206,.18)'; ctx.fillRect(14,Y1-lh,CX-30,lh);
+    ctx.fillStyle='rgba(66,153,225,.1)'; ctx.fillRect(CX+16,Y1-rh,W-CX-30,rh);
+    // Chamber borders
+    ctx.strokeStyle='rgba(99,179,237,.35)'; ctx.lineWidth=1.5;
+    ctx.strokeRect(14,Y0,CX-30,CH); ctx.strokeRect(CX+16,Y0,W-CX-30,CH);
+    // Chamber labels
+    ctx.fillStyle='rgba(113,128,150,.7)'; ctx.font='9px Space Mono'; ctx.textAlign='center';
+    ctx.fillText('HIGH CONCENTRATION',CX/2,Y0-8); ctx.fillText('LOW CONCENTRATION',CX+(W-CX)/2,Y0-8);
+    // Membrane
+    ctx.strokeStyle='rgba(99,179,237,.5)'; ctx.lineWidth=2;
+    ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(CX-8,Y0); ctx.lineTo(CX-8,Y1); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(CX+8,Y0); ctx.lineTo(CX+8,Y1); ctx.stroke();
+    // Pores
+    for(let i=0;i<s.pore+2;i++){
+      const py=Y0+30+(CH-60)*i/(s.pore+1);
+      ctx.beginPath(); ctx.arc(CX,py,5,0,Math.PI*2);
+      ctx.strokeStyle=s.running?'rgba(104,211,145,.8)':'rgba(99,179,237,.4)'; ctx.lineWidth=1.5; ctx.stroke();
+      if(s.running){ ctx.fillStyle='rgba(104,211,145,.15)'; ctx.fill(); }
+    }
+    ctx.fillStyle='rgba(99,179,237,.5)'; ctx.font='8px Space Mono'; ctx.textAlign='center'; ctx.fillText('MEMBRANE',CX,Y0-8);
+    // Particles
+    s.particles.forEach(p=>{
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=p.c+'cc'; ctx.fill();
+    });
+    // Water level markers
+    ctx.strokeStyle='rgba(104,211,145,.7)'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(14,Y1-lh); ctx.lineTo(CX-16,Y1-lh); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(CX+16,Y1-rh); ctx.lineTo(W-16,Y1-rh); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(104,211,145,.8)'; ctx.font='9px Space Mono'; ctx.textAlign='left';
+    ctx.fillText('h='+(lh/CH*100).toFixed(0)+'%',18,Y1-lh-4);
+    ctx.fillText('h='+(rh/CH*100).toFixed(0)+'%',CX+20,Y1-rh-4);
+    if(!s.running){
+      ctx.fillStyle='rgba(113,128,150,.5)'; ctx.font='12px DM Sans'; ctx.textAlign='center';
+      ctx.fillText('Press NEXT STEP to proceed',W/2,H/2);
+    }
+  },
+  cleanup(){}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// BIOLOGY — MITOSIS
+// ═══════════════════════════════════════════════════════════════
+const MitosisExp = {
+  shortName:'Mitosis', badge:'EXP-B02: MITOSIS',
+  title:'Mitosis — Cell Division Phases',
+  desc:'Step through the five phases of mitosis and observe chromosome movement, spindle formation, and cytokinesis.',
+  steps:['Interphase — cell prepares, DNA replicates','Prophase — chromosomes condense','Metaphase — chromosomes align at plate','Anaphase — chromatids separate to poles','Telophase & Cytokinesis — two daughter cells'],
+  hints:[
+    'Interphase: the cell grows and duplicates its DNA before division begins.',
+    'Prophase: chromatin condenses into visible chromosomes. Spindle fibres begin to form.',
+    'Metaphase: chromosomes align at the metaphase plate — the cell equator.',
+    'Anaphase: sister chromatids are pulled apart toward opposite poles by spindle fibres.',
+    '🎉 Cytokinesis complete! Two genetically identical daughter cells produced.'
+  ],
+  axesHint:'',labels:[],
+  readings:[
+    {id:'r-mphase',label:'Phase',unit:'',init:'INTERPHASE'},
+    {id:'r-mcell',label:'Cell Count',unit:'',init:'1'},
+    {id:'r-mtime',label:'Time',unit:'s',init:'0'},
+    {id:'r-mdi',label:'Division Idx',unit:'%',init:'0'},
+  ],
+  controlsHTML:`
+    <button class="btn primary" id="m-next">▶ NEXT PHASE</button>
+    <button class="btn" id="m-auto">⏩ AUTO: OFF</button>
+    <div class="ctrl-row" style="margin-top:4px"><div class="ctrl-label">Phase Speed <span id="m-spd-v">1×</span></div><input type="range" id="m-spd" min="1" max="4" step="1" value="1"></div>
+    <button class="btn danger" id="m-reset">↺ RESET</button>`,
+  PHASES:['INTERPHASE','PROPHASE','METAPHASE','ANAPHASE','TELOPHASE'],
+  st:{},
+  init(){
+    const {ctx,W,H}=setup2D(); this._W=W;this._H=H;this._ctx=ctx;
+    this.st={phase:0,t:0,auto:false,spd:1,cellCount:1,elapsed:0};
+    document.getElementById('m-next').onclick=()=>this._advance();
+    document.getElementById('m-auto').onclick=()=>this._toggleAuto();
+    document.getElementById('m-spd').oninput=e=>{this.st.spd=+e.target.value;document.getElementById('m-spd-v').textContent=e.target.value+'×';};
+    document.getElementById('m-reset').onclick=()=>this._reset();
+    let last=0;
+    const loop=t=>{APP.animId=requestAnimationFrame(loop);const dt=Math.min((t-last)/1000,.05);last=t;this._update(dt);this._draw();};
+    APP.animId=requestAnimationFrame(loop);
+  },
+  _advance(){
+    const s=this.st;
+    if(s.phase<4){s.phase++;s.t=0;setStep(s.phase,this.hints);addLog(this.PHASES[s.phase]+' phase','log-entry');
+      if(s.phase===4){s.cellCount=2;addLog('Division complete — 2 daughter cells','log-entry');finishExp();}}
+  },
+  _toggleAuto(){const s=this.st;s.auto=!s.auto;document.getElementById('m-auto').textContent='⏩ AUTO: '+(s.auto?'ON':'OFF');},
+  _reset(){this.st={phase:0,t:0,auto:false,spd:1,cellCount:1,elapsed:0};document.getElementById('m-auto').textContent='⏩ AUTO: OFF';setStep(0,this.hints);addLog('Reset to Interphase','log-warn');document.getElementById('progress-fill').style.width='0%';document.getElementById('progress-pct').textContent='0%';},
+  _update(dt){
+    const s=this.st; s.t+=dt*s.spd; s.elapsed+=dt;
+    if(s.auto&&s.phase<4&&s.t>4){this._advance();}
+    rv('r-mphase',this.PHASES[s.phase],'');
+    rv('r-mcell',s.cellCount,'good');
+    rv('r-mtime',s.elapsed.toFixed(0),'');
+    rv('r-mdi',(s.phase/4*100).toFixed(0),'warn');
+  },
+  _draw(){
+    const ctx=this._ctx,W=this._W,H=this._H,s=this.st,cx=W/2,cy=H/2;
+    ctx.fillStyle='#0a0e1a'; ctx.fillRect(0,0,W,H);
+    const ph=s.phase,t=s.t,CHR=['#fc8181','#68d391','#63b3ed','#f6ad55'];
+    // Phase label top
+    ctx.fillStyle='rgba(99,179,237,.8)'; ctx.font='bold 13px Space Mono'; ctx.textAlign='center';
+    ctx.fillText(this.PHASES[ph],cx,28);
+    // Phase progress dots
+    for(let i=0;i<5;i++){
+      ctx.beginPath(); ctx.arc(cx-80+i*40,50,6,0,Math.PI*2);
+      ctx.fillStyle=i<ph?'#68d391':i===ph?'#63b3ed':'#1a2236'; ctx.fill();
+      ctx.strokeStyle='rgba(99,179,237,.3)'; ctx.lineWidth=1; ctx.stroke();
+    }
+    if(ph===4){
+      // Two daughter cells
+      const sep=Math.min(t*30,120);
+      [cx-sep,cx+sep].forEach((x,ci)=>{
+        ctx.beginPath(); ctx.arc(x,cy,80,0,Math.PI*2);
+        ctx.strokeStyle='rgba(104,211,145,.7)'; ctx.lineWidth=2; ctx.stroke();
+        ctx.fillStyle='rgba(104,211,145,.05)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(x,cy,40,0,Math.PI*2);
+        ctx.strokeStyle='rgba(104,211,145,.4)'; ctx.lineWidth=1.5; ctx.stroke();
+        CHR.forEach((c,i)=>{const a=Math.PI/2*i;const r=25;ctx.beginPath();ctx.ellipse(x+Math.cos(a)*r,cy+Math.sin(a)*r,5,10,a,0,Math.PI*2);ctx.fillStyle=c+'bb';ctx.fill();});
+      });
+      ctx.fillStyle='rgba(104,211,145,.6)'; ctx.font='11px DM Sans'; ctx.textAlign='center'; ctx.fillText('2 daughter cells formed',cx,cy+130);
+    } else {
+      // Single cell outline
+      ctx.beginPath(); ctx.ellipse(cx,cy,150,130,0,0,Math.PI*2);
+      ctx.strokeStyle='rgba(104,211,145,.7)'; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.fillStyle='rgba(104,211,145,.04)'; ctx.fill();
+      if(ph===2){
+        // Cytokinesis crack effect
+        const crack=Math.min(t*40,60);
+        ctx.strokeStyle='rgba(104,211,145,.4)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+        ctx.beginPath(); ctx.moveTo(cx,cy-crack); ctx.lineTo(cx,cy+crack); ctx.stroke(); ctx.setLineDash([]);
+      }
+      // Nucleus
+      if(ph===0){
+        ctx.beginPath(); ctx.ellipse(cx,cy,50,45,0,0,Math.PI*2);
+        ctx.strokeStyle='rgba(99,179,237,.5)'; ctx.lineWidth=1.5; ctx.stroke();
+        ctx.fillStyle='rgba(99,179,237,.07)'; ctx.fill();
+      }
+      // Chromosomes
+      const chrConfig=[
+        [{x:-30,y:-20},{x:30,y:-20},{x:-30,y:20},{x:30,y:20}],  // interphase scattered
+        [{x:-35,y:-30},{x:35,y:-30},{x:-35,y:30},{x:35,y:30}],   // prophase condensed
+        [{x:-40,y:0},{x:-15,y:0},{x:15,y:0},{x:40,y:0}],         // metaphase aligned
+        null, null
+      ];
+      if(ph<=2&&chrConfig[ph]){
+        chrConfig[ph].forEach((pos,i)=>{
+          const angle=ph===2?Math.PI/2:Math.PI/4;
+          ctx.beginPath(); ctx.ellipse(cx+pos.x,cy+pos.y,8,14,angle,0,Math.PI*2);
+          ctx.fillStyle=CHR[i]+'cc'; ctx.fill();
+          // X cross
+          ctx.beginPath(); ctx.moveTo(cx+pos.x-8,cy+pos.y); ctx.lineTo(cx+pos.x+8,cy+pos.y);
+          ctx.strokeStyle=CHR[i]; ctx.lineWidth=1.5; ctx.stroke();
+        });
+      }
+      if(ph===3){
+        // Anaphase: chromosomes moving to poles
+        const pull=Math.min(t*25,80);
+        [[cx,-cy+cy-pull,cy],[cx,cy+pull,cy]].forEach(([x,y2],ci)=>{
+          CHR.forEach((c,i)=>{const xo=(i%2===0?-1:1)*18;ctx.beginPath();ctx.ellipse(x+xo,cy+(ci===0?-1:1)*pull,7,12,Math.PI/2,0,Math.PI*2);ctx.fillStyle=c+'bb';ctx.fill();});
+        });
+        // Spindle fibres
+        ctx.strokeStyle='rgba(99,179,237,.25)'; ctx.lineWidth=1;
+        for(let i=0;i<8;i++){const xo=(i-.5)*20-60;ctx.beginPath();ctx.moveTo(cx+xo,cy-120);ctx.lineTo(cx+xo,cy+120);ctx.stroke();}
+      }
+    }
+  },
+  cleanup(){}
+};
+// ═══════════════════════════════════════════════════════════════
+// THERMODYNAMICS — IDEAL GAS LAW
+// ═══════════════════════════════════════════════════════════════
+const GasExp = {
+  shortName:'Ideal Gas', badge:'EXP-T01: IDEAL GAS LAW',
+  title:'Ideal Gas Law — PV = nRT',
+  desc:'Simulate a gas of particles in a container with a movable piston. Vary temperature and volume to verify Boyle\'s and Charles\'s Laws.',
+  steps:['Initialise container with gas particles','Observe particle motion at room temperature','Increase temperature — watch pressure rise','Compress the gas (reduce volume)','Verify PV/nRT ≈ 1 (ideal gas constant)'],
+  hints:[
+    'The container holds n=1 mol of ideal gas. Particles bounce elastically off walls.',
+    'At 300 K, particles move with average speed ∝ √T. Pressure = momentum transfers/s.',
+    'Temperature rises → particle speed increases → more frequent wall collisions → higher pressure.',
+    'Reducing volume increases collision rate with walls → pressure rises (Boyle\'s Law: P∝1/V).',
+    '🎉 PV/nRT ≈ 1 confirms ideal gas behaviour!'
+  ],
+  axesHint:'',labels:[],
+  readings:[
+    {id:'r-gt',label:'Temperature',unit:'K',init:'300'},
+    {id:'r-gp',label:'Pressure',unit:'atm',init:'—'},
+    {id:'r-gv',label:'Volume',unit:'L',init:'—'},
+    {id:'r-gpvnrt',label:'PV/nRT',unit:'',init:'—'},
+  ],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Temperature <span id="g-t-v">300 K</span></div><input type="range" id="g-temp" min="100" max="800" step="10" value="300"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Volume (piston) <span id="g-v-v">50%</span></div><input type="range" id="g-vol" min="20" max="90" step="1" value="50"></div>
+    <button class="btn primary" id="g-next">▶ NEXT STEP</button>
+    <button class="btn danger" id="g-reset">↺ RESET</button>`,
+  st:{},
+  init(){
+    const {ctx,W,H}=setup2D(); this._W=W;this._H=H;this._ctx=ctx;
+    this.st={T:300,volPct:50,step:0,particles:[],wallHits:0,hitTimer:0,pressure:0,pvnrt:0};
+    this._makeParticles();
+    document.getElementById('g-temp').oninput=e=>{this.st.T=+e.target.value;document.getElementById('g-t-v').textContent=e.target.value+' K';this._rescaleSpeeds();};
+    document.getElementById('g-vol').oninput=e=>{this.st.volPct=+e.target.value;document.getElementById('g-v-v').textContent=e.target.value+'%';};
+    document.getElementById('g-next').onclick=()=>this._next();
+    document.getElementById('g-reset').onclick=()=>this._reset();
+    let last=0;
+    const loop=t=>{APP.animId=requestAnimationFrame(loop);const dt=Math.min((t-last)/1000,.04);last=t;this._update(dt);this._draw();};
+    APP.animId=requestAnimationFrame(loop);
+  },
+  _makeParticles(){
+    const W=this._W,H=this._H,p=[],T=this.st.T;
+    const spd=Math.sqrt(T/300)*2.5;
+    for(let i=0;i<80;i++){
+      const a=Math.random()*Math.PI*2;
+      p.push({x:rnd(60,W-40),y:rnd(60,H-80),vx:Math.cos(a)*spd*(0.5+Math.random()),vy:Math.sin(a)*spd*(0.5+Math.random()),r:4});
+    }
+    this.st.particles=p;
+  },
+  _rescaleSpeeds(){
+    const p=this.st.particles,T=this.st.T,factor=Math.sqrt(T/300)*2.5;
+    p.forEach(pt=>{const sp=Math.hypot(pt.vx,pt.vy);if(sp>0){const ns=factor*(0.5+Math.random());pt.vx=pt.vx/sp*ns;pt.vy=pt.vy/sp*ns;}});
+  },
+  _next(){
+    const s=this.st;
+    if(s.step<4){s.step++;setStep(s.step,this.hints);addLog('Step '+(s.step+1)+' — '+this.steps[s.step],'log-entry');if(s.step===4)finishExp();}
+  },
+  _reset(){this.st.step=0;this.st.T=300;this.st.volPct=50;document.getElementById('g-temp').value=300;document.getElementById('g-vol').value=50;document.getElementById('g-t-v').textContent='300 K';document.getElementById('g-v-v').textContent='50%';this._makeParticles();setStep(0,this.hints);addLog('Reset','log-warn');},
+  _update(dt){
+    const s=this.st,W=this._W,H=this._H;
+    const LX=50,RX=W-30,BotY=H-60,pistonY=BotY-(BotY-50)*s.volPct/100;
+    s.hitTimer+=dt; let hits=0;
+    s.particles.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<LX+p.r){p.x=LX+p.r;p.vx=Math.abs(p.vx);hits++;}
+      if(p.x>RX-p.r){p.x=RX-p.r;p.vx=-Math.abs(p.vx);hits++;}
+      if(p.y>BotY-p.r){p.y=BotY-p.r;p.vy=-Math.abs(p.vy);hits++;}
+      if(p.y<pistonY+p.r){p.y=pistonY+p.r;p.vy=Math.abs(p.vy);hits++;}
+    });
+    s.wallHits+=hits;
+    if(s.hitTimer>0.5){s.pressure=s.wallHits/(s.hitTimer*2)*0.003;s.wallHits=0;s.hitTimer=0;}
+    const V=(RX-LX)*(BotY-pistonY)/(W*H)*20; const n=1, R=0.0821;
+    s.pvnrt=s.pressure*V/(n*R*s.T);
+    rv('r-gt',s.T,''); rv('r-gp',s.pressure.toFixed(2),'warn'); rv('r-gv',V.toFixed(2),''); rv('r-gpvnrt',s.pvnrt.toFixed(2),Math.abs(s.pvnrt-1)<0.2?'good':'');
+  },
+  _draw(){
+    const ctx=this._ctx,W=this._W,H=this._H,s=this.st;
+    ctx.fillStyle='#0a0e1a'; ctx.fillRect(0,0,W,H);
+    const LX=50,RX=W-30,BotY=H-60,pistonY=BotY-(BotY-50)*s.volPct/100;
+    // Container walls
+    ctx.strokeStyle='rgba(99,179,237,.5)'; ctx.lineWidth=2;
+    ctx.strokeRect(LX,pistonY,RX-LX,BotY-pistonY);
+    // Gas fill
+    const hot=Math.min(1,(s.T-100)/700);
+    ctx.fillStyle=`rgba(${Math.round(lerp(30,200,hot))},${Math.round(lerp(100,50,hot))},${Math.round(lerp(200,30,hot))},.12)`;
+    ctx.fillRect(LX+1,pistonY+1,RX-LX-2,BotY-pistonY-2);
+    // Piston
+    ctx.fillStyle='rgba(74,85,104,.9)'; ctx.fillRect(LX,pistonY-6,RX-LX,10);
+    ctx.fillStyle='rgba(99,179,237,.6)'; ctx.fillRect(LX,pistonY-1,RX-LX,2);
+    // Piston handle
+    const pmid=(LX+RX)/2; ctx.fillStyle='#4a5568'; ctx.fillRect(pmid-20,pistonY-20,40,16);
+    ctx.strokeStyle='rgba(99,179,237,.4)'; ctx.lineWidth=1; ctx.strokeRect(pmid-20,pistonY-20,40,16);
+    ctx.fillStyle='rgba(99,179,237,.7)'; ctx.font='9px Space Mono'; ctx.textAlign='center';
+    ctx.fillText('PISTON',pmid,pistonY-8);
+    // Particles
+    s.particles.forEach(p=>{
+      if(p.x>LX&&p.x<RX&&p.y>pistonY&&p.y<BotY){
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        const sp=Math.hypot(p.vx,p.vy)/5;
+        ctx.fillStyle=`rgba(${Math.round(lerp(99,252,sp))},${Math.round(lerp(179,129,sp))},${Math.round(lerp(237,129,sp))},.85)`;
+        ctx.fill();
+      }
+    });
+    // Labels
+    ctx.fillStyle='rgba(113,128,150,.7)'; ctx.font='10px Space Mono'; ctx.textAlign='left';
+    ctx.fillText('T='+s.T+'K  P='+s.pressure.toFixed(2)+'atm',LX+4,pistonY-28);
+    // Mini PV diagram (corner)
+    const gx=W-120,gy=80,gw=100,gh=70;
+    ctx.strokeStyle='rgba(99,179,237,.3)'; ctx.lineWidth=1;
+    ctx.strokeRect(gx,gy,gw,gh);
+    ctx.fillStyle='rgba(10,14,26,.8)'; ctx.fillRect(gx,gy,gw,gh);
+    ctx.fillStyle='rgba(99,179,237,.4)'; ctx.font='8px Space Mono'; ctx.textAlign='center';
+    ctx.fillText('P-V DIAGRAM',gx+gw/2,gy-4);
+    // Current point
+    const V2=(RX-LX)*(BotY-pistonY)/(W*H)*20;
+    const px2=gx+4+(V2/20)*gw*.85, py2=gy+gh-4-(s.pressure/2)*gh*.7;
+    ctx.beginPath(); ctx.arc(clamp(px2,gx+4,gx+gw-4),clamp(py2,gy+4,gy+gh-4),4,0,Math.PI*2);
+    ctx.fillStyle='#68d391'; ctx.fill();
+    ctx.fillStyle='rgba(113,128,150,.5)'; ctx.font='8px Space Mono'; ctx.textAlign='left';
+    ctx.fillText('V→',gx+gw-14,gy+gh+10); ctx.fillText('P',gx-10,gy+8);
+  },
+  cleanup(){}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// THERMODYNAMICS — HEAT CONDUCTION
+// ═══════════════════════════════════════════════════════════════
+const HeatExp = {
+  shortName:'Heat Conduction', badge:'EXP-T02: HEAT CONDUCTION',
+  title:'Fourier\'s Law of Heat Conduction',
+  desc:'Observe heat diffusion along a metal rod using the finite-difference heat equation. Compare copper, steel, and glass.',
+  steps:['Select a material for the rod','Set the heat source temperature','Observe heat propagation along the rod','Reach steady-state temperature gradient','Compare α across different materials'],
+  hints:[
+    'Copper has the highest thermal diffusivity α=117 mm²/s — heat spreads almost instantly.',
+    'Adjust the source temperature using the slider. The right end is fixed at 20°C.',
+    'Watch the colour gradient shift from blue (cold) to red (hot) as heat propagates.',
+    'Steady state: temperature profile is linear along rod (Fourier\'s Law: Q = -kA·dT/dx).',
+    '🎉 Compare! Copper: fast. Steel: moderate. Glass: very slow heat transfer.'
+  ],
+  axesHint:'',labels:[],
+  readings:[
+    {id:'r-htl',label:'T-Left',unit:'°C',init:'—',cls:'hot'},
+    {id:'r-htm',label:'T-Mid',unit:'°C',init:'—'},
+    {id:'r-htr',label:'T-Right',unit:'°C',unit:'°C',init:'20'},
+    {id:'r-hflux',label:'Heat Flux',unit:'W/m²',init:'—',cls:'warn'},
+  ],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Material <span id="h-mat-v">Copper</span></div>
+      <select id="h-mat"><option value="117">Copper (α=117)</option><option value="12">Steel (α=12)</option><option value="0.5">Glass (α=0.5)</option></select></div>
+    <div class="ctrl-row"><div class="ctrl-label">Source Temp <span id="h-src-v">300°C</span></div><input type="range" id="h-src" min="50" max="500" step="10" value="300"></div>
+    <button class="btn primary" id="h-next">▶ NEXT STEP</button>
+    <button class="btn danger" id="h-reset">↺ RESET</button>`,
+  st:{},
+  init(){
+    const {ctx,W,H}=setup2D(); this._W=W;this._H=H;this._ctx=ctx;
+    const N=80; const T=new Float32Array(N).fill(20);
+    this.st={N,T,alpha:117,src:300,step:0,time:0};
+    document.getElementById('h-mat').onchange=e=>{this.st.alpha=+e.target.value;document.getElementById('h-mat-v').textContent=e.target.options[e.target.selectedIndex].text.split(' ')[0];};
+    document.getElementById('h-src').oninput=e=>{this.st.src=+e.target.value;document.getElementById('h-src-v').textContent=e.target.value+'°C';};
+    document.getElementById('h-next').onclick=()=>this._next();
+    document.getElementById('h-reset').onclick=()=>this._reset();
+    let last=0;
+    const loop=t=>{APP.animId=requestAnimationFrame(loop);const dt=Math.min((t-last)/1000,.04);last=t;this._update(dt);this._draw();};
+    APP.animId=requestAnimationFrame(loop);
+  },
+  _next(){const s=this.st;if(s.step<4){s.step++;setStep(s.step,this.hints);if(s.step===4)finishExp();}},
+  _reset(){const s=this.st;s.T.fill(20);s.step=0;s.time=0;setStep(0,this.hints);addLog('Rod reset to 20°C','log-warn');},
+  _update(dt){
+    const s=this.st,N=s.N,T=s.T,dt2=dt*s.alpha*0.3;
+    T[0]=s.src; T[N-1]=20;
+    const tmp=new Float32Array(N);
+    tmp[0]=s.src; tmp[N-1]=20;
+    for(let i=1;i<N-1;i++) tmp[i]=T[i]+dt2*(T[i-1]-2*T[i]+T[i+1]);
+    for(let i=0;i<N;i++) s.T[i]=tmp[i];
+    s.time+=dt;
+    const flux=s.alpha*(T[0]-T[N-1])/(N)*100;
+    rv('r-htl',T[0].toFixed(0),'hot'); rv('r-htm',T[Math.floor(N/2)].toFixed(0),''); rv('r-htr',T[N-1].toFixed(0),''); rv('r-hflux',flux.toFixed(0),'warn');
+  },
+  _draw(){
+    const ctx=this._ctx,W=this._W,H=this._H,s=this.st,N=s.N;
+    ctx.fillStyle='#0a0e1a'; ctx.fillRect(0,0,W,H);
+    const barX=60,barW=W-120,barY=H/2-30,barH=60,segW=barW/N;
+    // Draw each segment
+    for(let i=0;i<N;i++){
+      const t=clamp((s.T[i]-20)/(s.src-20),0,1);
+      const r=Math.round(lerp(30,252,t)), g=Math.round(lerp(80,129,t)*(1-t)+lerp(80,80,t)*t), bl=Math.round(lerp(200,30,t));
+      ctx.fillStyle=`rgb(${r},${Math.round(lerp(120,50,t))},${bl})`;
+      ctx.fillRect(barX+i*segW,barY,segW+1,barH);
+    }
+    // Bar border
+    ctx.strokeStyle='rgba(99,179,237,.4)'; ctx.lineWidth=1.5; ctx.strokeRect(barX,barY,barW,barH);
+    // Heat source
+    ctx.fillStyle='rgba(252,129,129,.85)'; ctx.fillRect(barX-30,barY,28,barH);
+    ctx.strokeStyle='#fc8181'; ctx.lineWidth=1; ctx.strokeRect(barX-30,barY,28,barH);
+    ctx.fillStyle='rgba(252,129,129,.9)'; ctx.font='8px Space Mono'; ctx.textAlign='center'; ctx.fillText('HOT',barX-16,barY+barH/2+3);
+    // Cold sink
+    ctx.fillStyle='rgba(49,130,206,.6)'; ctx.fillRect(barX+barW+2,barY,28,barH);
+    ctx.strokeStyle='#63b3ed'; ctx.lineWidth=1; ctx.strokeRect(barX+barW+2,barY,28,barH);
+    ctx.fillStyle='rgba(99,179,237,.9)'; ctx.fillText('COLD',barX+barW+16,barY+barH/2+3);
+    // Temperature curve above bar
+    ctx.beginPath(); ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1.5;
+    for(let i=0;i<N;i++){
+      const t=clamp((s.T[i]-20)/(s.src-20),0,1);
+      const px=barX+i*segW, py=barY-10-t*60;
+      i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+    // Labels
+    ctx.fillStyle='rgba(99,179,237,.7)'; ctx.font='10px Space Mono'; ctx.textAlign='center';
+    ctx.fillText(s.src+'°C',barX-16,barY-8); ctx.fillText('20°C',barX+barW+16,barY-8);
+    ctx.fillStyle='rgba(113,128,150,.6)'; ctx.fillText('← x (distance) →',barX+barW/2,barY+barH+20);
+    ctx.fillText('α='+s.alpha+' mm²/s  t='+s.time.toFixed(1)+'s',barX+barW/2,barY-80);
+    // Tick marks
+    ctx.fillStyle='rgba(113,128,150,.5)'; ctx.font='8px Space Mono';
+    for(let i=0;i<=4;i++){const x=barX+barW*i/4;ctx.fillText((i*25)+'%',x,barY+barH+12);}
+  },
+  cleanup(){}
+};
+// ═══════════════════════════════════════════════════════════════
+// ELECTRICITY — OHM'S LAW
+// ═══════════════════════════════════════════════════════════════
+const OhmExp = {
+  shortName:"Ohm's Law", badge:"EXP-E01: OHM'S LAW",
+  title:"Ohm's Law — V = IR",
+  desc:'Build a simple circuit with a battery, resistor, and light bulb. Adjust voltage and resistance to verify I = V/R.',
+  steps:['Connect battery to the circuit','Set the voltage (battery EMF)','Adjust resistance and observe current change','Note bulb brightness changes with power P=I²R','Verify Ohm\'s Law: I = V/R at all settings'],
+  hints:[
+    'The circuit is connected and ready. Current will flow when voltage > 0.',
+    'Increase voltage — the current increases proportionally (I = V/R).',
+    'Lower resistance → more current → brighter bulb. Higher R → dimmer.',
+    'Power P = I²R = V²/R determines brightness. Notice quadratic relationship.',
+    '🎉 Ohm\'s Law verified! I = V/R holds at every setting.'
+  ],
+  axesHint:'',labels:[],
+  readings:[
+    {id:'r-ov',label:'Voltage',unit:'V',init:'0.0'},
+    {id:'r-oi',label:'Current',unit:'mA',init:'0'},
+    {id:'r-or',label:'Resistance',unit:'Ω',init:'60'},
+    {id:'r-op',label:'Power',unit:'W',init:'0.00'},
+  ],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Voltage (EMF) <span id="o-v-v">0.0 V</span></div><input type="range" id="o-volt" min="0" max="12" step="0.1" value="0"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Resistance <span id="o-r-v">60 Ω</span></div><input type="range" id="o-res" min="1" max="120" step="1" value="60"></div>
+    <button class="btn primary" id="o-next">▶ NEXT STEP</button>
+    <button class="btn danger" id="o-reset">↺ RESET</button>`,
+  st:{},
+  init(){
+    const {ctx,W,H}=setup2D(); this._W=W;this._H=H;this._ctx=ctx;
+    this.st={V:0,R:60,step:0,dots:[],dotTimer:0};
+    this._spawnDots();
+    document.getElementById('o-volt').oninput=e=>{this.st.V=+e.target.value;document.getElementById('o-v-v').textContent=(+e.target.value).toFixed(1)+' V';};
+    document.getElementById('o-res').oninput=e=>{this.st.R=+e.target.value;document.getElementById('o-r-v').textContent=e.target.value+' Ω';};
+    document.getElementById('o-next').onclick=()=>this._next();
+    document.getElementById('o-reset').onclick=()=>{this.st.V=0;this.st.R=60;this.st.step=0;document.getElementById('o-volt').value=0;document.getElementById('o-res').value=60;document.getElementById('o-v-v').textContent='0.0 V';document.getElementById('o-r-v').textContent='60 Ω';setStep(0,this.hints);addLog('Reset','log-warn');};
+    let last=0;
+    const loop=t=>{APP.animId=requestAnimationFrame(loop);const dt=Math.min((t-last)/1000,.04);last=t;this._update(dt);this._draw();};
+    APP.animId=requestAnimationFrame(loop);
+  },
+  _next(){const s=this.st;if(s.step<4){s.step++;setStep(s.step,this.hints);addLog(this.steps[s.step],'log-entry');if(s.step===4)finishExp();}},
+  _spawnDots(){this.st.dots=[];for(let i=0;i<12;i++) this.st.dots.push({seg:i%4,pos:i/12,alpha:0.7+Math.random()*.3});},
+  _update(dt){
+    const s=this.st; const I=s.V/s.R*1000; const P=(s.V*s.V/s.R);
+    rv('r-ov',s.V.toFixed(1),''); rv('r-oi',I.toFixed(0),I>80?'hot':''); rv('r-or',s.R,''); rv('r-op',P.toFixed(2),P>1?'warn':'');
+    if(s.V>0){
+      const spd=I/100*dt;
+      s.dots.forEach(d=>{d.pos+=spd;if(d.pos>=1)d.pos-=1;});
+    }
+  },
+  _draw(){
+    const ctx=this._ctx,W=this._W,H=this._H,s=this.st;
+    ctx.fillStyle='#0a0e1a'; ctx.fillRect(0,0,W,H);
+    const I=s.V/s.R*1000, P=s.V*s.V/s.R;
+    // Circuit path: top-left battery → top wire → top-right → right wire → bottom-right → bottom wire (resistor) → bottom-left → left wire back
+    const cx=W/2, cy=H/2;
+    const x0=cx-200, x1=cx+200, y0=cy-120, y1=cy+120;
+    // Draw wires
+    ctx.strokeStyle='rgba(99,179,237,.4)'; ctx.lineWidth=2.5;
+    ctx.beginPath();
+    // top: battery+ → top-right corner
+    ctx.moveTo(x0,y0); ctx.lineTo(x1,y0);
+    // right: top-right → ammeter → bottom-right
+    ctx.moveTo(x1,y0); ctx.lineTo(x1,y1);
+    // bottom: bottom-right → resistor → bottom-left
+    ctx.moveTo(x0,y1); ctx.lineTo(x1,y1);
+    // left: bottom-left → battery-
+    ctx.moveTo(x0,y0); ctx.lineTo(x0,y1);
+    ctx.stroke();
+    // Current dots
+    if(s.V>0){
+      const path=[
+        (t)=>[x0+t*(x1-x0),y0],    // top left→right
+        (t)=>[x1,y0+t*(y1-y0)],    // right top→bottom
+        (t)=>[x1-t*(x1-x0),y1],    // bottom right→left
+        (t)=>[x0,y1-t*(y1-y0)],    // left bottom→top
+      ];
+      s.dots.forEach(d=>{
+        const seg=Math.floor(d.pos*4);const pos=(d.pos*4)%1;
+        const [px,py]=path[seg](pos);
+        ctx.beginPath(); ctx.arc(px,py,4,0,Math.PI*2);
+        ctx.fillStyle='rgba(104,211,145,.85)'; ctx.fill();
+      });
+    }
+    // BATTERY (left side)
+    ctx.fillStyle='#2d3748'; ctx.fillRect(x0-22,cy-35,44,70);
+    ctx.strokeStyle='rgba(99,179,237,.5)'; ctx.lineWidth=1.5; ctx.strokeRect(x0-22,cy-35,44,70);
+    for(let i=0;i<3;i++){
+      ctx.fillStyle=i%2?'rgba(99,179,237,.8)':'rgba(113,128,150,.4)';
+      ctx.fillRect(x0-14,cy-20+i*14,28,8);
+    }
+    ctx.fillStyle='rgba(252,129,129,.9)'; ctx.font='9px Space Mono'; ctx.textAlign='center'; ctx.fillText('+',x0,y0-8);
+    ctx.fillStyle='rgba(99,179,237,.8)'; ctx.fillText('−',x0,y1+14);
+    ctx.fillStyle='rgba(113,128,150,.7)'; ctx.fillText('BATTERY',x0,cy+52);
+    ctx.fillText(s.V.toFixed(1)+'V',x0,cy+63);
+    // RESISTOR (bottom wire, middle)
+    const rx=cx, ry=y1, rw=80, rh=16;
+    ctx.fillStyle='#2d3748'; ctx.fillRect(rx-rw/2,ry-rh/2,rw,rh);
+    ctx.strokeStyle='rgba(246,173,85,.7)'; ctx.lineWidth=1.5; ctx.strokeRect(rx-rw/2,ry-rh/2,rw,rh);
+    // Zigzag inside
+    ctx.beginPath(); ctx.moveTo(rx-rw/2+4,ry);
+    for(let i=0;i<8;i++) ctx.lineTo(rx-rw/2+4+(i+1)*((rw-8)/8), ry+(i%2===0?-6:6));
+    ctx.lineTo(rx+rw/2-4,ry); ctx.strokeStyle='rgba(246,173,85,.8)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='rgba(246,173,85,.8)'; ctx.font='9px Space Mono'; ctx.textAlign='center';
+    ctx.fillText('RESISTOR',rx,ry+22); ctx.fillText(s.R+'Ω',rx,ry+33);
+    // AMMETER (right wire, mid)
+    const ax=x1, ay=cy;
+    ctx.beginPath(); ctx.arc(ax,ay,22,0,Math.PI*2);
+    ctx.fillStyle='#2d3748'; ctx.fill(); ctx.strokeStyle='rgba(104,211,145,.6)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='rgba(104,211,145,.9)'; ctx.font='bold 10px Space Mono'; ctx.textAlign='center'; ctx.fillText('A',ax,ay+4);
+    ctx.fillStyle='rgba(104,211,145,.6)'; ctx.font='8px Space Mono'; ctx.fillText(I.toFixed(0)+'mA',ax,ay+18);
+    // LIGHT BULB (top wire, mid)
+    const bx=cx, by=y0, br=24;
+    const bright=Math.min(1,P/2);
+    if(bright>0){
+      const g=ctx.createRadialGradient(bx,by,0,bx,by,br*3);
+      g.addColorStop(0,`rgba(255,220,100,${bright*.6})`); g.addColorStop(1,'rgba(255,220,100,0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(bx,by,br*3,0,Math.PI*2); ctx.fill();
+    }
+    ctx.beginPath(); ctx.arc(bx,by,br,0,Math.PI*2);
+    ctx.fillStyle=`rgba(${Math.round(lerp(30,255,bright))},${Math.round(lerp(50,220,bright))},${Math.round(lerp(60,80,bright))},.9)`;
+    ctx.fill(); ctx.strokeStyle='rgba(246,173,85,.7)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx-8,by+8); ctx.lineTo(bx,by-8); ctx.lineTo(bx+8,by+8);
+    ctx.strokeStyle=`rgba(255,200,50,${Math.max(.3,bright)})`; ctx.lineWidth=1.2; ctx.stroke();
+    ctx.fillStyle='rgba(246,173,85,.8)'; ctx.font='9px Space Mono'; ctx.textAlign='center';
+    ctx.fillText('BULB',bx,by-br-8); ctx.fillText(P.toFixed(2)+'W',bx,by-br-19);
+    // VOLTMETER (floating, top-left area)
+    const vx=x0+100, vy=cy-40;
+    ctx.beginPath(); ctx.arc(vx,vy,20,0,Math.PI*2);
+    ctx.fillStyle='#2d3748'; ctx.fill(); ctx.strokeStyle='rgba(99,179,237,.5)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='rgba(99,179,237,.9)'; ctx.font='bold 10px Space Mono'; ctx.textAlign='center'; ctx.fillText('V',vx,vy+4);
+    ctx.fillStyle='rgba(99,179,237,.6)'; ctx.font='8px Space Mono'; ctx.fillText(s.V.toFixed(1)+'V',vx,vy+18);
+    // Voltmeter leads (dashed)
+    ctx.setLineDash([3,3]); ctx.strokeStyle='rgba(99,179,237,.3)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(vx-15,vy); ctx.lineTo(x0,vy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(vx+15,vy); ctx.lineTo(x1,vy); ctx.stroke(); ctx.setLineDash([]);
+  },
+  cleanup(){}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ELECTRICITY — EM INDUCTION
+// ═══════════════════════════════════════════════════════════════
+const InductionExp = {
+  shortName:'EM Induction', badge:'EXP-E02: EM INDUCTION',
+  title:"Faraday's Law of Electromagnetic Induction",
+  desc:'Drag the bar magnet toward and away from the coil to induce a current. Observe the galvanometer deflect as flux changes.',
+  steps:['Place magnet near coil — field lines visible','Move magnet toward coil — observe EMF','Move magnet away — EMF reverses','Flip magnet polarity — reversed response','Increase coil turns — larger induced EMF'],
+  hints:[
+    'Faraday\'s Law: EMF = −N·dΦ/dt. Move the magnet to induce current.',
+    'Magnet moving toward coil: flux increases → galvanometer deflects right.',
+    'Magnet moving away: flux decreases → EMF reverses (left deflection).',
+    'Flipped polarity → reversed field → reversed deflection direction.',
+    '🎉 More turns (N) → proportionally larger EMF — Faraday\'s Law confirmed!'
+  ],
+  axesHint:'🖱 DRAG the magnet left/right',
+  labels:[],
+  readings:[
+    {id:'r-iemf',label:'Induced EMF',unit:'mV',init:'0.0'},
+    {id:'r-iI',label:'Current',unit:'µA',init:'0'},
+    {id:'r-iturns',label:'Coil Turns',unit:'',init:'10'},
+    {id:'r-iflux',label:'ΔΦ/Δt',unit:'T·m²/s',init:'0.0'},
+  ],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Coil Turns <span id="i-turns-v">10</span></div><input type="range" id="i-turns" min="5" max="50" step="5" value="10"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Magnet Strength <span id="i-str-v">1.0×</span></div><input type="range" id="i-str" min="1" max="4" step="0.5" value="1"></div>
+    <button class="btn" id="i-flip">⇄ FLIP POLARITY</button>
+    <button class="btn primary" id="i-next">▶ NEXT STEP</button>
+    <button class="btn danger" id="i-reset">↺ RESET</button>`,
+  st:{},
+  init(){
+    const {ctx,W,H}=setup2D(); this._W=W;this._H=H;this._ctx=ctx;
+    this.st={magX:W*0.25,magY:H/2,dragging:false,prevX:W*0.25,vx:0,turns:10,strength:1,polarity:1,step:0,emf:0,needle:0};
+    const c=document.getElementById('lab-canvas-2d');
+    c.onmousedown=e=>{const r=c.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;if(Math.abs(mx-this.st.magX)<40&&Math.abs(my-this.st.magY)<25){this.st.dragging=true;this.st.prevX=mx;}};
+    c.onmousemove=e=>{if(!this.st.dragging)return;const r=c.getBoundingClientRect();const mx=e.clientX-r.left;this.st.vx=(mx-this.st.prevX);this.st.prevX=mx;this.st.magX=clamp(mx,40,W*0.6);};
+    c.onmouseup=()=>{this.st.dragging=false;};
+    document.getElementById('i-turns').oninput=e=>{this.st.turns=+e.target.value;document.getElementById('i-turns-v').textContent=e.target.value;};
+    document.getElementById('i-str').oninput=e=>{this.st.strength=+e.target.value;document.getElementById('i-str-v').textContent=(+e.target.value).toFixed(1)+'×';};
+    document.getElementById('i-flip').onclick=()=>{this.st.polarity*=-1;addLog('Polarity flipped','log-warn');};
+    document.getElementById('i-next').onclick=()=>this._next();
+    document.getElementById('i-reset').onclick=()=>{this.st.magX=this._W*0.25;this.st.step=0;this.st.polarity=1;setStep(0,this.hints);addLog('Reset','log-warn');};
+    let last=0;
+    const loop=t=>{APP.animId=requestAnimationFrame(loop);const dt=Math.min((t-last)/1000,.04);last=t;this._update(dt);this._draw();};
+    APP.animId=requestAnimationFrame(loop);
+  },
+  _next(){const s=this.st;if(s.step<4){s.step++;setStep(s.step,this.hints);addLog(this.steps[s.step],'log-entry');if(s.step===4)finishExp();}},
+  _update(dt){
+    const s=this.st,W=this._W,coilX=W*0.68;
+    const dist=coilX-s.magX; const flux=s.strength*1000/(dist*dist+100);
+    const rawEMF=-s.turns*s.vx*s.polarity*s.strength*0.04;
+    s.emf=lerp(s.emf,rawEMF,0.3);
+    s.needle=lerp(s.needle,clamp(s.emf*3,-80,80),0.15);
+    if(!s.dragging) s.vx*=0.8;
+    rv('r-iemf',(s.emf*10).toFixed(1),Math.abs(s.emf)>2?'hot':'');
+    rv('r-iI',(s.emf*80).toFixed(0),'');
+    rv('r-iturns',s.turns,'');
+    rv('r-iflux',(s.vx*s.strength*.01).toFixed(2),'warn');
+  },
+  _draw(){
+    const ctx=this._ctx,W=this._W,H=this._H,s=this.st,cy=H/2;
+    ctx.fillStyle='#0a0e1a'; ctx.fillRect(0,0,W,H);
+    // Magnetic field lines
+    const coilX=W*0.68;
+    for(let i=-3;i<=3;i++){
+      const dist=coilX-s.magX; const alpha=Math.max(0,0.3-Math.abs(i)*0.05)*s.strength;
+      if(alpha<0.02) continue;
+      ctx.beginPath();
+      ctx.strokeStyle=`rgba(${s.polarity>0?'99,179,237':'246,173,85'},${alpha})`;
+      ctx.lineWidth=1;
+      const cp1x=s.magX+dist*0.33, cp1y=cy+i*30;
+      const cp2x=s.magX+dist*0.66, cp2y=cy+i*20;
+      ctx.moveTo(s.magX+22,cy+i*8);
+      ctx.bezierCurveTo(cp1x,cp1y,cp2x,cp2y,coilX-10,cy+i*12);
+      ctx.stroke();
+    }
+    // MAGNET
+    const mw=80,mh=44,mx=s.magX,my=cy;
+    ctx.fillStyle='#2d3748'; ctx.fillRect(mx-mw/2,my-mh/2,mw,mh);
+    ctx.strokeStyle='rgba(113,128,150,.6)'; ctx.lineWidth=1.5; ctx.strokeRect(mx-mw/2,my-mh/2,mw,mh);
+    // N pole
+    const nCol=s.polarity>0?'#fc8181':'#63b3ed', sCol=s.polarity>0?'#63b3ed':'#fc8181';
+    ctx.fillStyle=nCol; ctx.fillRect(mx,my-mh/2,mw/2,mh);
+    ctx.fillStyle=sCol; ctx.fillRect(mx-mw/2,my-mh/2,mw/2,mh);
+    ctx.fillStyle='rgba(10,14,26,.9)'; ctx.font='bold 13px Space Mono'; ctx.textAlign='center';
+    ctx.fillText(s.polarity>0?'N':'S',mx+mw/4+1,my+5); ctx.fillText(s.polarity>0?'S':'N',mx-mw/4+1,my+5);
+    ctx.strokeStyle='rgba(113,128,150,.4)'; ctx.lineWidth=1; ctx.strokeRect(mx,my-mh/2,mw/2,mh);
+    ctx.fillStyle='rgba(255,255,255,.5)'; ctx.font='8px Space Mono'; ctx.fillText('BAR MAGNET',mx,my+mh/2+12);
+    // COIL (overlapping ellipses)
+    const turns=Math.min(s.turns,12), coilH=100;
+    for(let i=turns;i>=0;i--){
+      const cx2=coilX+(i-turns/2)*5;
+      ctx.beginPath(); ctx.ellipse(cx2,cy,14,coilH/2,0,0,Math.PI*2);
+      const bright=Math.abs(s.emf)/5; ctx.strokeStyle=`rgba(${Math.round(lerp(99,246,bright))},${Math.round(lerp(179,173,bright))},${Math.round(lerp(237,85,bright))},.7)`; ctx.lineWidth=1.5; ctx.stroke();
+    }
+    ctx.fillStyle='rgba(99,179,237,.6)'; ctx.font='9px Space Mono'; ctx.textAlign='center'; ctx.fillText('COIL (N='+s.turns+')',coilX,cy-coilH/2-10);
+    // Connecting wires to galvanometer
+    const gx=coilX+50,gy=cy+80;
+    ctx.strokeStyle='rgba(99,179,237,.3)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(coilX,cy-coilH/2); ctx.lineTo(gx,gy-30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(coilX,cy+coilH/2); ctx.lineTo(gx,gy+30); ctx.stroke();
+    ctx.setLineDash([]);
+    // GALVANOMETER
+    const gr=45;
+    ctx.beginPath(); ctx.arc(gx,gy,gr,Math.PI,0); ctx.strokeStyle='rgba(99,179,237,.6)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='#111827'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(gx-gr,gy); ctx.lineTo(gx+gr,gy); ctx.stroke();
+    ctx.fillStyle='rgba(99,179,237,.7)'; ctx.font='10px Space Mono'; ctx.textAlign='center'; ctx.fillText('G',gx,gy+10);
+    // Needle
+    const na=(Math.PI/2-s.needle*Math.PI/180)*1; // remap
+    ctx.save(); ctx.translate(gx,gy); ctx.rotate(-s.needle*Math.PI/180);
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-gr+8);
+    ctx.strokeStyle=Math.abs(s.emf)>1?'#fc8181':'rgba(104,211,145,.8)'; ctx.lineWidth=2.5; ctx.stroke();
+    ctx.restore();
+    // Tick marks on galvanometer
+    for(let i=-3;i<=3;i++){
+      const a=-i*25*Math.PI/180; ctx.beginPath();
+      ctx.moveTo(gx+Math.sin(a)*(gr-4),gy-Math.cos(a)*(gr-4));
+      ctx.lineTo(gx+Math.sin(a)*(gr-10),gy-Math.cos(a)*(gr-10));
+      ctx.strokeStyle='rgba(113,128,150,.5)'; ctx.lineWidth=1; ctx.stroke();
+    }
+    ctx.fillStyle='rgba(113,128,150,.5)'; ctx.font='8px Space Mono'; ctx.textAlign='center';
+    ctx.fillText('GALVANOMETER',gx,gy+gr+12);
+    ctx.fillText((s.emf*10).toFixed(1)+' mV',gx,gy+gr+22);
+    if(!s.dragging){
+      ctx.fillStyle='rgba(99,179,237,.4)'; ctx.font='11px DM Sans'; ctx.fillText('Drag the magnet →',W*0.3,H-25);
+    }
+  },
+  cleanup(){const c=document.getElementById('lab-canvas-2d');c.onmousedown=null;c.onmousemove=null;c.onmouseup=null;}
+};
+// ═══════════════════════════════════════════════════════════════
+// CHEMISTRY — ACID-BASE TITRATION (Three.js)
+// ═══════════════════════════════════════════════════════════════
+const TitrationExp = {
+  shortName:'Titration', badge:'EXP-C01: ACID-BASE TITRATION',
+  title:'Acid-Base Titration with pH Indicator',
+  desc:'Determine HCl concentration using NaOH. Observe colour change at the equivalence point using phenolphthalein.',
+  steps:['Add HCl solution to Erlenmeyer flask','Add phenolphthalein indicator drops','Fill burette with NaOH solution','Begin slow titration — watch pH','Stop at pink endpoint (pH ≈ 8.2)'],
+  hints:[
+    'Add the acid solution to the Erlenmeyer flask first. Use Next Step to proceed.',
+    'Add phenolphthalein — it turns pink in basic conditions at the endpoint.',
+    'Fill the burette with 0.1M NaOH solution. Keep the stopcock closed.',
+    'Begin titration slowly. A rapid pH jump signals the equivalence point!',
+    '🎉 Perfect endpoint! Pink colour confirms neutralisation. Record burette reading.'
+  ],
+  axesHint:'🖱 LEFT DRAG: rotate\n🖱 RIGHT DRAG: pan\n🖱 SCROLL: zoom',
+  labels:[
+    {id:'lbl-a',text:'ERLENMEYER_FLASK',top:'54%',left:'50%'},
+    {id:'lbl-b',text:'RETORT_STAND',top:'30%',left:'44%'},
+    {id:'lbl-c',text:'BURETTE',top:'18%',left:'52%'},
+    {id:'lbl-d',text:'BUNSEN_BURNER',top:'70%',left:'28%'},
+  ],
+  readings:[
+    {id:'r-tph',label:'pH Level',unit:'',init:'2.3'},
+    {id:'r-ttemp',label:'Temperature',unit:'°C',init:'22'},
+    {id:'r-tvol',label:'Vol. Added',unit:'mL',init:'0.0'},
+    {id:'r-tstatus',label:'Status',unit:'',init:'READY',cls:'good'},
+  ],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Burner Intensity <span id="t-burn-v">0%</span></div><input type="range" id="t-burn" min="0" max="100" value="0"></div>
+    <div class="ctrl-row"><div class="ctrl-label">NaOH Drop Rate <span id="t-drip-v">0 mL/s</span></div><input type="range" id="t-drip" min="0" max="10" value="0"></div>
+    <button class="btn primary" id="t-next">▶ NEXT STEP</button>
+    <button class="btn" id="t-indicator">+ ADD INDICATOR</button>
+    <button class="btn danger" id="t-reset">↺ RESET</button>`,
+  _r:null,_s:null,_cam:null,_sph:{theta:.3,phi:1.1,radius:11},_pan:{x:0,y:0},_drag:false,_rBtn:false,_prev:{x:0,y:0},
+  _st:{},
+  init(){
+    const c=setup3D(); const W=c.parentElement.clientWidth,H=c.parentElement.clientHeight;
+    const THREE_=THREE;
+    const r=new THREE_.WebGLRenderer({canvas:c,antialias:true});
+    r.setPixelRatio(devicePixelRatio); r.shadowMap.enabled=true; r.shadowMap.type=THREE_.PCFSoftShadowMap;
+    r.toneMapping=THREE_.ACESFilmicToneMapping; r.toneMappingExposure=1.2;
+    r.setSize(W,H); this._r=r;
+    const scene=new THREE_.Scene(); scene.background=new THREE_.Color(0x0a0e1a); scene.fog=new THREE_.Fog(0x0a0e1a,18,35); this._s=scene;
+    const cam=new THREE_.PerspectiveCamera(45,W/H,0.1,100); cam.position.set(0,4,10); cam.lookAt(0,1,0); this._cam=cam;
+    // Lighting
+    scene.add(new THREE_.AmbientLight(0x1a2a4a,.8));
+    const ml=new THREE_.DirectionalLight(0xffffff,1.4); ml.position.set(5,10,5); ml.castShadow=true; ml.shadow.mapSize.set(2048,2048); ml.shadow.camera.left=-10;ml.shadow.camera.right=10;ml.shadow.camera.top=10;ml.shadow.camera.bottom=-10;scene.add(ml);
+    scene.add(Object.assign(new THREE_.DirectionalLight(0x63b3ed,.5),{position:new THREE_.Vector3(-5,3,-3)}));
+    const bL=new THREE_.PointLight(0xff6b35,0,3); bL.position.set(-1.2,.6,0); scene.add(bL); this._bL=bL;
+    // Table
+    const tbl=new THREE_.Mesh(new THREE_.BoxGeometry(12,.18,5),new THREE_.MeshStandardMaterial({color:0x1a2a3a,roughness:.6,metalness:.1}));
+    tbl.position.y=-.09;tbl.receiveShadow=true;scene.add(tbl);
+    const eg=new THREE_.Mesh(new THREE_.BoxGeometry(12,.04,.04),new THREE_.MeshStandardMaterial({color:0x63b3ed,emissive:0x63b3ed,emissiveIntensity:.4}));
+    eg.position.set(0,.02,2.5);scene.add(eg);
+    scene.add(Object.assign(new THREE_.GridHelper(10,20,0x1a3a5a,0x0f2035),{position:new THREE_.Vector3(0,.01,0)}));
+    const mT=(rt,rb,h,s,m)=>new THREE_.Mesh(new THREE_.CylinderGeometry(rt,rb,h,s),m);
+    const gM=(col=0x88ccff,op=.25)=>new THREE_.MeshStandardMaterial({color:col,transparent:true,opacity:op,roughness:0,metalness:0,side:THREE_.DoubleSide});
+    // Flask
+    const fG=new THREE_.Group(); fG.position.set(1,.0,.3); scene.add(fG);
+    const fPts=[]; for(let i=0;i<=20;i++){const t=i/20,y=t*1.1;let r2=t<.7?(.05+.55*Math.sin(t/.7*Math.PI*.5)):.55*(1-(t-.7)/.3*.85);fPts.push(new THREE_.Vector2(r2,y));}
+    fG.add(Object.assign(new THREE_.Mesh(new THREE_.LatheGeometry(fPts,32),gM(0xaaddff,.2)),{castShadow:true}));
+    const flPts=[]; for(let i=0;i<=15;i++){const t=i/15,y=t*.45;let r2=.05+.5*Math.sin(t/.5*Math.PI*.5);if(r2<0)r2=0;flPts.push(new THREE_.Vector2(r2*.93,y));}
+    const fLiq=new THREE_.Mesh(new THREE_.LatheGeometry(flPts,32),new THREE_.MeshStandardMaterial({color:0x3399ff,transparent:true,opacity:.55,roughness:.1}));
+    fG.add(fLiq); this._fLiq=fLiq; this._fG=fG;
+    // Beaker
+    const bkG=new THREE_.Group(); bkG.position.set(-1.2,0,.5); scene.add(bkG);
+    bkG.add(Object.assign(mT(.45,.4,1,32,gM(0x88ccff,.22)),{position:new THREE_.Vector3(0,.5,0),castShadow:true}));
+    bkG.add(Object.assign(mT(.47,.47,.04,32,new THREE_.MeshStandardMaterial({color:0xaaddff,roughness:.1})),{position:new THREE_.Vector3(0,1.02,0)}));
+    const bLiq=new THREE_.Mesh(new THREE_.CylinderGeometry(.37,.37,.55,32),new THREE_.MeshStandardMaterial({color:0x3399ff,transparent:true,opacity:.5,roughness:.1}));
+    bLiq.position.y=.3; bkG.add(bLiq); this._bLiq=bLiq;
+    for(let i=0;i<4;i++){const mk=new THREE_.Mesh(new THREE_.BoxGeometry(.02,.015,.01),new THREE_.MeshStandardMaterial({color:0x99ccee}));mk.position.set(.44,.2+i*.18,0);bkG.add(mk);}
+    // Retort stand
+    const stG=new THREE_.Group(); stG.position.set(.5,0,-.5); scene.add(stG);
+    stG.add(Object.assign(new THREE_.Mesh(new THREE_.BoxGeometry(1.4,.08,.5),new THREE_.MeshStandardMaterial({color:0x2d3748,roughness:.8,metalness:.5})),{position:new THREE_.Vector3(0,.04,0),castShadow:true}));
+    const sP=mT(.035,.035,2.8,12,new THREE_.MeshStandardMaterial({color:0x4a5568,roughness:.3,metalness:.8})); sP.position.set(-.5,1.4,0);stG.add(sP);
+    const cA=new THREE_.Mesh(new THREE_.BoxGeometry(.3,.08,.12),new THREE_.MeshStandardMaterial({color:0x718096,roughness:.4,metalness:.6})); cA.position.set(-.1,1.8,0);stG.add(cA);
+    const cArm=mT(.02,.02,.8,8,new THREE_.MeshStandardMaterial({color:0x4a5568,roughness:.3,metalness:.8})); cArm.rotation.z=Math.PI/2;cArm.position.set(.25,1.8,0);stG.add(cArm);
+    // Burette
+    const buG=new THREE_.Group(); buG.position.set(.6,1.8,-.5); scene.add(buG);
+    buG.add(Object.assign(mT(.04,.04,1.6,16,gM(0xcceeff,.28)),{position:new THREE_.Vector3(0,-.8,0)}));
+    buG.add(Object.assign(new THREE_.Mesh(new THREE_.CylinderGeometry(.033,.033,1.4,16),new THREE_.MeshStandardMaterial({color:0xccffcc,transparent:true,opacity:.7})),{position:new THREE_.Vector3(0,-.7,0)}));
+    buG.add(Object.assign(mT(.008,.012,.18,8,new THREE_.MeshStandardMaterial({color:0x4a5568,metalness:.8})),{position:new THREE_.Vector3(0,-1.69,0)}));
+    // Bunsen burner
+    const brG=new THREE_.Group(); brG.position.set(-1.2,0,.5); scene.add(brG);
+    brG.add(Object.assign(new THREE_.Mesh(new THREE_.CylinderGeometry(.25,.28,.08,24),new THREE_.MeshStandardMaterial({color:0x2d3748,roughness:.7,metalness:.5})),{castShadow:true}));
+    brG.add(Object.assign(mT(.07,.09,.65,16,new THREE_.MeshStandardMaterial({color:0x4a5568,roughness:.3,metalness:.9})),{position:new THREE_.Vector3(0,.37,0)}));
+    brG.add(Object.assign(mT(.055,.07,.08,16,new THREE_.MeshStandardMaterial({color:0x718096,roughness:.3,metalness:.9})),{position:new THREE_.Vector3(0,.74,0)}));
+    // Flame
+    const flGrp=new THREE_.Group(); flGrp.position.set(-1.2,.82,.5); scene.add(flGrp);
+    const fO=new THREE_.Mesh(new THREE_.ConeGeometry(.12,.4,12),new THREE_.MeshStandardMaterial({color:0xff6b35,emissive:0xff4500,emissiveIntensity:2,transparent:true,opacity:0,side:THREE_.DoubleSide}));
+    const fI=new THREE_.Mesh(new THREE_.ConeGeometry(.07,.28,12),new THREE_.MeshStandardMaterial({color:0x00ccff,emissive:0x00aaff,emissiveIntensity:3,transparent:true,opacity:0}));
+    fO.position.y=.2;fI.position.y=.14;flGrp.add(fO);flGrp.add(fI);
+    this._fO=fO;this._fI=fI;
+    // Petri dishes
+    for(let i=0;i<3;i++){const pd=new THREE_.Mesh(new THREE_.CylinderGeometry(.22,.22,.04,24),new THREE_.MeshStandardMaterial({color:0x2d4a6a,transparent:true,opacity:.6}));pd.position.set(-3.5+i*1.2,.03,-1.2);pd.receiveShadow=true;scene.add(pd);}
+    // Test tubes
+    const rkG=new THREE_.Group();rkG.position.set(3,0,0);scene.add(rkG);
+    rkG.add(new THREE_.Mesh(new THREE_.BoxGeometry(.9,.06,.25),new THREE_.MeshStandardMaterial({color:0x2d3748,roughness:.8})));
+    [0xff6b6b,0xffdd59,0x6bcb77,0x4d96ff].forEach((tc,i)=>{
+      const tt=mT(.04,.035,.5,12,gM(tc,.3));tt.position.set(-.3+i*.2,.28,0);rkG.add(tt);
+      const tl=new THREE_.Mesh(new THREE_.CylinderGeometry(.03,.025,.18,12),new THREE_.MeshStandardMaterial({color:tc,transparent:true,opacity:.7}));tl.position.set(-.3+i*.2,.1,0);rkG.add(tl);
+    });
+    // Drops
+    this._drops=[];
+    // State
+    this._st={step:0,burner:0,drip:0,temp:22,ph:2.3,vol:0,indicator:false,equiv:false};
+    // Controls
+    document.getElementById('t-burn').oninput=e=>{const v=+e.target.value/100;this._st.burner=v;document.getElementById('t-burn-v').textContent=e.target.value+'%';this._bL.intensity=v*3;this._fO.material.opacity=v*.85;this._fI.material.opacity=v*.9;};
+    document.getElementById('t-drip').oninput=e=>{this._st.drip=+e.target.value;document.getElementById('t-drip-v').textContent=(+e.target.value/10).toFixed(1)+' mL/s';};
+    document.getElementById('t-next').onclick=()=>this._next();
+    document.getElementById('t-indicator').onclick=()=>this._addIndicator();
+    document.getElementById('t-reset').onclick=()=>this._reset();
+    // Orbit
+    c.onmousedown=e=>{this._drag=true;this._rBtn=e.button===2;this._prev={x:e.clientX,y:e.clientY};};
+    c.oncontextmenu=e=>e.preventDefault();
+    window.addEventListener('mouseup',this._mup=()=>this._drag=false);
+    window.addEventListener('mousemove',this._mmo=e=>{if(!this._drag)return;const dx=(e.clientX-this._prev.x)*.006,dy=(e.clientY-this._prev.y)*.006;if(this._rBtn){this._pan.x-=dx*this._sph.radius*.3;this._pan.y+=dy*this._sph.radius*.3;}else{this._sph.theta-=dx;this._sph.phi=clamp(this._sph.phi+dy,.3,Math.PI/2-.05);}this._prev={x:e.clientX,y:e.clientY};});
+    c.addEventListener('wheel',this._wh=e=>{this._sph.radius=clamp(this._sph.radius+e.deltaY*.01,4,20);});
+    const onResize=()=>{const W2=c.parentElement.clientWidth,H2=c.parentElement.clientHeight;r.setSize(W2,H2);cam.aspect=W2/H2;cam.updateProjectionMatrix();};
+    window.addEventListener('resize',this._rs=onResize);
+    let last=0,dropT=0;
+    const loop=t=>{APP.animId=requestAnimationFrame(loop);const dt=Math.min((t-last)/1000,.05);last=t;const ts=t*.001;
+      const sp=this._sph,pa=this._pan;
+      cam.position.set(sp.radius*Math.sin(sp.phi)*Math.sin(sp.theta)+pa.x,sp.radius*Math.cos(sp.phi)+pa.y,sp.radius*Math.sin(sp.phi)*Math.cos(sp.theta));
+      cam.lookAt(pa.x,1+pa.y*.1,0);
+      const st=this._st;
+      if(st.burner>0){fO.scale.y=1+Math.sin(ts*12)*.08;fO.scale.x=1+Math.sin(ts*9+1)*.04;fI.scale.y=1+Math.sin(ts*14+.5)*.06;st.temp=Math.min(100,lerp(st.temp,22+st.burner*80,dt*.3));}
+      else st.temp=Math.max(22,lerp(st.temp,22,dt*.1));
+      if(st.step>=3&&st.drip>0){dropT+=dt;const intv=1/(st.drip*.6+.1);
+        if(dropT>intv){dropT=0;const d=new THREE_.Mesh(new THREE_.SphereGeometry(.025,8,8),new THREE_.MeshStandardMaterial({color:0xccffcc,transparent:true,opacity:.85}));d.position.set(.6,.12,-.5);d.userData.vy=0;scene.add(d);this._drops.push(d);st.vol+=st.drip*dt*.15;
+          if(st.ph<13.5){st.ph=Math.min(13.5,st.ph+st.drip*dt*.12);
+            if(st.indicator&&st.ph>8){const t2=Math.min(1,(st.ph-8)/.5);fLiq.material.color.setRGB(lerp(.4,1,t2),lerp(.6,.3,t2),lerp(1,.6,t2));fLiq.material.opacity=lerp(.5,.75,t2);
+              if(st.ph>8.2&&!st.equiv){st.equiv=true;addLog('⚡ ENDPOINT REACHED! Pink colour detected.','log-entry');addLog('pH = '+st.ph.toFixed(1)+' — equivalence point!','log-entry');rv('r-tstatus','ENDPOINT!','hot');finishExp();}}}}}
+      for(let i=this._drops.length-1;i>=0;i--){const d=this._drops[i];d.userData.vy-=9.8*dt;d.position.y+=d.userData.vy*dt;if(d.position.y<.3){scene.remove(d);this._drops.splice(i,1);}}
+      fLiq.scale.y=1+Math.sin(ts*.8)*.008; fG.position.y=Math.sin(ts*.5)*.003;
+      rv('r-tph',st.ph.toFixed(1),st.ph>7?'good':st.ph<3?'hot':'');
+      rv('r-ttemp',Math.round(st.temp),st.temp>70?'hot':'');
+      rv('r-tvol',st.vol.toFixed(1),'');
+      r.render(scene,cam);};
+    APP.animId=requestAnimationFrame(loop);
+  },
+  _next(){const s=this._st;
+    if(s.step===0){addLog('HCl solution added to flask','log-entry');this._advance(1);}
+    else if(s.step===1){if(!s.indicator){addLog('Add indicator first!','log-warn');return;}addLog('Indicator confirmed.','log-entry');this._advance(2);}
+    else if(s.step===2){addLog('Burette filled with 0.1M NaOH','log-entry');addLog('TIP: use drip slider to titrate','log-warn');this._advance(3);}
+    else if(s.step===3){if(s.equiv){this._advance(4);}else addLog('Continue titrating — not at endpoint yet','log-warn');}
+  },
+  _advance(n){this._st.step=n;setStep(n,this.hints);},
+  _addIndicator(){const s=this._st;if(s.step<1){addLog('Add acid first!','log-warn');return;}if(s.indicator){addLog('Indicator already added','log-warn');return;}s.indicator=true;this._fLiq.material.color.set(0x66aaff);addLog('Phenolphthalein added (3 drops)','log-entry');addLog('Solution remains colourless (acidic)','log-entry');},
+  _reset(){this._st={step:0,burner:0,drip:0,temp:22,ph:2.3,vol:0,indicator:false,equiv:false};document.getElementById('t-burn').value=0;document.getElementById('t-drip').value=0;document.getElementById('t-burn-v').textContent='0%';document.getElementById('t-drip-v').textContent='0 mL/s';this._fLiq.material.color.set(0x3399ff);this._fLiq.material.opacity=.55;this._bL.intensity=0;this._fO.material.opacity=0;this._fI.material.opacity=0;this._drops.forEach(d=>this._s.remove(d));this._drops.length=0;setStep(0,this.hints);rv('r-tstatus','READY','good');addLog('Experiment reset','log-warn');document.getElementById('progress-fill').style.width='0%';document.getElementById('progress-pct').textContent='0%';},
+  cleanup(){if(this._r){this._r.dispose();this._r=null;}window.removeEventListener('mouseup',this._mup);window.removeEventListener('mousemove',this._mmo);if(this._wh){const c=document.getElementById('lab-canvas-3d');c.removeEventListener('wheel',this._wh);}window.removeEventListener('resize',this._rs);document.getElementById('lab-canvas-3d').classList.remove('active');}
+};
+// ═══════════════════════════════════════════════════════════════
+// CHEMISTRY — ELECTROLYSIS (Three.js)
+// ═══════════════════════════════════════════════════════════════
+const ElectrolysisExp = {
+  shortName:'Electrolysis', badge:'EXP-C02: ELECTROLYSIS OF WATER',
+  title:'Electrolysis of Water — Faraday\'s Law',
+  desc:'Decompose H₂O into hydrogen and oxygen gas using DC current. Verify the 2:1 volume ratio predicted by stoichiometry.',
+  steps:['Fill electrolytic cell with distilled water','Add Na₂SO₄ electrolyte — improve conductivity','Insert carbon electrodes into solution','Connect DC power — increase voltage, observe bubbles','Record H₂:O₂ ratio — confirm water formula'],
+  hints:[
+    'Fill the cell with distilled water first. Pure water barely conducts electricity.',
+    'Add Na₂SO₄ electrolyte to improve conductivity. Adjust concentration slider.',
+    'Carbon electrodes inserted. Cathode (−) left produces H₂, anode (+) right produces O₂.',
+    'Apply voltage — bubbles form! H₂ rate is exactly 2× O₂ (by stoichiometry).',
+    '🎉 H₂:O₂ ≈ 2:1 confirmed! Water formula H₂O proven by Faraday\'s Law.'
+  ],
+  axesHint:'🖱 LEFT DRAG: rotate\n🖱 RIGHT DRAG: pan\n🖱 SCROLL: zoom',
+  labels:[
+    {id:'lbl-a',text:'ELECTROLYTIC_CELL',top:'48%',left:'36%'},
+    {id:'lbl-b',text:'POWER_SUPPLY_DC',top:'50%',left:'58%'},
+    {id:'lbl-c',text:'CATHODE_(−)_H₂',top:'34%',left:'33%'},
+    {id:'lbl-d',text:'ANODE_(+)_O₂',top:'34%',left:'46%'},
+  ],
+  readings:[
+    {id:'r-evolt',label:'Voltage',unit:'V',init:'0.0'},
+    {id:'r-ecurr',label:'Current',unit:'mA',init:'0'},
+    {id:'r-eh2',label:'H₂ Vol.',unit:'mL',init:'0.0',cls:'good'},
+    {id:'r-eo2',label:'O₂ Vol.',unit:'mL',init:'0.0'},
+  ],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Voltage <span id="e-v-v">0 V</span></div><input type="range" id="e-volt" min="0" max="12" step="0.1" value="0"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Electrolyte Conc. <span id="e-c-v">0%</span></div><input type="range" id="e-conc" min="0" max="100" step="1" value="0"></div>
+    <button class="btn primary" id="e-next">▶ NEXT STEP</button>
+    <button class="btn" id="e-electrolyte">+ ADD ELECTROLYTE</button>
+    <button class="btn danger" id="e-reset">↺ RESET</button>`,
+  _r:null,_s:null,_cam:null,_sph:{theta:.25,phi:1.1,radius:11},_pan:{x:0,y:0},_drag:false,_rBtn:false,_prev:{x:0,y:0},
+  _st:{},_cathBub:[],_anoBub:[],
+  init(){
+    const c=setup3D(),W=c.parentElement.clientWidth,H=c.parentElement.clientHeight;
+    const T=THREE;
+    const r=new T.WebGLRenderer({canvas:c,antialias:true}); r.setPixelRatio(devicePixelRatio); r.shadowMap.enabled=true; r.shadowMap.type=T.PCFSoftShadowMap; r.toneMapping=T.ACESFilmicToneMapping; r.toneMappingExposure=1.2; r.setSize(W,H); this._r=r;
+    const scene=new T.Scene(); scene.background=new T.Color(0x0a0e1a); scene.fog=new T.Fog(0x0a0e1a,18,35); this._s=scene;
+    const cam=new T.PerspectiveCamera(45,W/H,.1,100); cam.position.set(0,4,10); cam.lookAt(0,1,0); this._cam=cam;
+    scene.add(new T.AmbientLight(0x1a2a4a,.8));
+    const ml=new T.DirectionalLight(0xffffff,1.4); ml.position.set(5,10,5); ml.castShadow=true; ml.shadow.mapSize.set(2048,2048); ['left','right','top','bottom'].forEach((d,i)=>{ml.shadow.camera[d]=[-10,10,10,-10][i];}); scene.add(ml);
+    scene.add(Object.assign(new T.DirectionalLight(0x63b3ed,.5),{position:new T.Vector3(-5,3,-3)}));
+    const psuGlow=new T.PointLight(0x68d391,0,3); psuGlow.position.set(2.5,1,.5); scene.add(psuGlow); this._psuGlow=psuGlow;
+    const reL=new T.PointLight(0x99ccff,0,2.5); reL.position.set(0,1,.5); scene.add(reL); this._reL=reL;
+    const mT=(rt,rb,h,s,m)=>new T.Mesh(new T.CylinderGeometry(rt,rb,h,s),m);
+    const gM=(col=0x88ccff,op=.25)=>new T.MeshStandardMaterial({color:col,transparent:true,opacity:op,roughness:0,metalness:0,side:T.DoubleSide});
+    // Table
+    const tbl=new T.Mesh(new T.BoxGeometry(12,.18,5),new T.MeshStandardMaterial({color:0x1a2a3a,roughness:.6,metalness:.1})); tbl.position.y=-.09;tbl.receiveShadow=true;scene.add(tbl);
+    scene.add(Object.assign(new T.Mesh(new T.BoxGeometry(12,.04,.04),new T.MeshStandardMaterial({color:0x63b3ed,emissive:0x63b3ed,emissiveIntensity:.4})),{position:new T.Vector3(0,.02,2.5)}));
+    scene.add(Object.assign(new T.GridHelper(10,20,0x1a3a5a,0x0f2035),{position:new T.Vector3(0,.01,0)}));
+    // Cell
+    const cellG=new T.Group(); cellG.position.set(0,0,.2); scene.add(cellG);
+    const CW=1.6,CH=1.05,CD=.65,WT=.03;
+    const gCell=()=>gM(0xaaddff,.17);
+    [[CW,WT,CD,0,WT/2,0],[CW,CH,WT,0,CH/2,CD/2],[CW,CH,WT,0,CH/2,-CD/2],[WT,CH,CD,-CW/2,CH/2,0],[WT,CH,CD,CW/2,CH/2,0]].forEach(([w,h,d,x,y,z])=>{const m=new T.Mesh(new T.BoxGeometry(w,h,d),gCell());m.position.set(x,y,z);cellG.add(m);});
+    const WY0=WT,WH=.68;
+    const waterM=new T.MeshStandardMaterial({color:0x1a5a9f,transparent:true,opacity:.32,roughness:.05});
+    const waterMesh=new T.Mesh(new T.BoxGeometry(CW-.08,WH,CD-.08),waterM); waterMesh.position.set(0,WY0+WH/2,0); cellG.add(waterMesh); this._waterM=waterM;
+    // Electrodes
+    const CATX=-.45,ANOX=.45,EB=WT+.03,EH=WH+.12,EM=EB+EH/2;
+    const catR=mT(.028,.028,EH,12,new T.MeshStandardMaterial({color:0x2a2a2a,roughness:.4,metalness:.5})); catR.position.set(CATX,EM,0); cellG.add(catR);
+    const anoR=mT(.028,.028,EH,12,new T.MeshStandardMaterial({color:0x3a3a3a,roughness:.4,metalness:.5})); anoR.position.set(ANOX,EM,0); cellG.add(anoR);
+    const bY=EB+EH+.04;
+    const cBand=new T.Mesh(new T.CylinderGeometry(.032,.032,.05,12),new T.MeshStandardMaterial({color:0xee2222,emissive:0xcc0000,emissiveIntensity:.2})); cBand.position.set(CATX,bY,0); cellG.add(cBand);
+    const aBand=new T.Mesh(new T.CylinderGeometry(.032,.032,.05,12),new T.MeshStandardMaterial({color:0x111111,roughness:.2,metalness:.8})); aBand.position.set(ANOX,bY,0); cellG.add(aBand);
+    this._CATX=CATX;this._ANOX=ANOX;this._WY0=WY0;this._WH=WH;this._WTopY=WY0+WH;
+    // PSU
+    const pG=new T.Group(); pG.position.set(2.6,0,.3); scene.add(pG);
+    pG.add(Object.assign(new T.Mesh(new T.BoxGeometry(.78,.55,.48),new T.MeshStandardMaterial({color:0x161c2e,roughness:.6,metalness:.35})),{position:new T.Vector3(0,.275,0),castShadow:true}));
+    const dispM=new T.MeshStandardMaterial({color:0x001805,emissive:0x00ee55,emissiveIntensity:.08}); const disp=new T.Mesh(new T.BoxGeometry(.32,.16,.01),dispM); disp.position.set(.06,.36,.245); pG.add(disp); this._dispM=dispM;
+    pG.add(Object.assign(new T.Mesh(new T.BoxGeometry(.78,.03,.01),new T.MeshStandardMaterial({color:0x63b3ed,emissive:0x63b3ed,emissiveIntensity:.6})),{position:new T.Vector3(0,.535,.245)}));
+    const ledM=new T.MeshStandardMaterial({color:0x003300,emissive:0x00cc44,emissiveIntensity:.1}); const led=new T.Mesh(new T.SphereGeometry(.018,8,8),ledM); led.position.set(-.3,.48,.245); pG.add(led); this._ledM=ledM;
+    // Wires
+    const wireR=new T.CatmullRomCurve3([new T.Vector3(2.82,.52,.42),new T.Vector3(2,1.15,.3),new T.Vector3(.9,1.2,.3),new T.Vector3(.45,.92,.3)]);
+    scene.add(new T.Mesh(new T.TubeGeometry(wireR,24,.011,8,false),new T.MeshStandardMaterial({color:0xcc2222,roughness:.8})));
+    const wireB=new T.CatmullRomCurve3([new T.Vector3(2.65,.52,.42),new T.Vector3(1.8,1.25,.3),new T.Vector3(.5,1.3,.3),new T.Vector3(-.1,1.25,.3),new T.Vector3(-.45,.92,.3)]);
+    scene.add(new T.Mesh(new T.TubeGeometry(wireB,28,.011,8,false),new T.MeshStandardMaterial({color:0x111111,roughness:.8})));
+    // Background
+    [0xff6b6b,0xffdd59,0x6bcb77,0x4d96ff].forEach((tc,i)=>{const bg=new T.Group();bg.position.set(-3.2+i*.55,0,-.8);scene.add(bg);const bk=mT(.15+i*.03,.13+i*.03,.5+i*.12,24,gM(tc,.2));bk.position.y=.27+i*.06;bg.add(bk);const lq=new T.Mesh(new T.CylinderGeometry(.12+i*.02,.11+i*.02,.2+i*.05,24),new T.MeshStandardMaterial({color:tc,transparent:true,opacity:.5}));lq.position.y=.12+i*.025;bg.add(lq);});
+    // State
+    this._st={step:0,volt:0,conc:0,curr:0,h2:0,o2:0,elec:false,ratio:false};
+    this._cathBub=[];this._anoBub=[];
+    // Controls
+    document.getElementById('e-volt').oninput=e=>{this._st.volt=+e.target.value;document.getElementById('e-v-v').textContent=(+e.target.value).toFixed(1)+' V';const on=this._st.volt>.5;this._dispM.emissiveIntensity=on?.5:.08;this._ledM.emissiveIntensity=on?1.2:.1;this._psuGlow.intensity=on?this._st.volt*.08:0;};
+    document.getElementById('e-conc').oninput=e=>{this._st.conc=+e.target.value;document.getElementById('e-c-v').textContent=e.target.value+'%';};
+    document.getElementById('e-next').onclick=()=>this._next();
+    document.getElementById('e-electrolyte').onclick=()=>this._addElec();
+    document.getElementById('e-reset').onclick=()=>this._reset();
+    // Orbit
+    c.onmousedown=e=>{this._drag=true;this._rBtn=e.button===2;this._prev={x:e.clientX,y:e.clientY};};
+    c.oncontextmenu=e=>e.preventDefault();
+    window.addEventListener('mouseup',this._mup=()=>this._drag=false);
+    window.addEventListener('mousemove',this._mmo=e=>{if(!this._drag)return;const dx=(e.clientX-this._prev.x)*.006,dy=(e.clientY-this._prev.y)*.006;if(this._rBtn){this._pan.x-=dx*this._sph.radius*.3;this._pan.y+=dy*this._sph.radius*.3;}else{this._sph.theta-=dx;this._sph.phi=clamp(this._sph.phi+dy,.3,Math.PI/2-.05);}this._prev={x:e.clientX,y:e.clientY};});
+    c.addEventListener('wheel',this._wh=e=>{this._sph.radius=clamp(this._sph.radius+e.deltaY*.01,4,20);});
+    window.addEventListener('resize',this._rs=()=>{const W2=c.parentElement.clientWidth,H2=c.parentElement.clientHeight;r.setSize(W2,H2);cam.aspect=W2/H2;cam.updateProjectionMatrix();});
+    let last=0,bubT=0;
+    const loop=t=>{APP.animId=requestAnimationFrame(loop);const dt=Math.min((t-last)/1000,.05);last=t;
+      const sp=this._sph,pa=this._pan;
+      cam.position.set(sp.radius*Math.sin(sp.phi)*Math.sin(sp.theta)+pa.x,sp.radius*Math.cos(sp.phi)+pa.y,sp.radius*Math.sin(sp.phi)*Math.cos(sp.theta));
+      cam.lookAt(pa.x,1+pa.y*.1,0);
+      const s=this._st,active=s.step>=3&&s.volt>1.5&&s.elec;
+      if(active){s.curr=s.volt*(s.conc/100)*48;this._reL.intensity=lerp(this._reL.intensity,s.curr*.003,dt*3);bubT+=dt;const brate=s.curr*.005;const intv=1/(brate+.01);
+        if(bubT>intv&&brate>.1){bubT=0;
+          [[this._CATX,0xccf0ff],[this._CATX,0xddf5ff],[this._ANOX,0xffffff]].forEach(([bx,col],bi)=>{const bub=new T.Mesh(new T.SphereGeometry(.016+Math.random()*.008,8,8),new T.MeshStandardMaterial({color:col,transparent:true,opacity:.55+Math.random()*.3}));const sy=this._WY0+Math.random()*(this._WH-.1);bub.position.set(bx+(Math.random()-.5)*.06,sy,.2+(Math.random()-.5)*.08);bub.userData.vy=.12+Math.random()*.1;bub.userData.wb=Math.random()*Math.PI*2;scene.add(bub);(bi<2?this._cathBub:this._anoBub).push(bub);});
+          s.h2+=s.curr*dt*.0028;s.o2+=s.curr*dt*.0014;
+          if(s.h2>18&&!s.ratio){s.ratio=true;const rt=(s.h2/Math.max(s.o2,.001)).toFixed(2);addLog('⚡ RATIO H₂:O₂ = '+rt+':1 — confirmed!','log-entry');addLog('Water formula H₂O verified!','log-entry');finishExp();}}}
+      else{s.curr=0;this._reL.intensity=lerp(this._reL.intensity,0,dt*2);}
+      [...this._cathBub,...this._anoBub].forEach((b,i,arr)=>{b.userData.wb+=dt*4;b.position.y+=b.userData.vy*dt;b.position.x+=Math.sin(b.userData.wb)*.003;b.material.opacity-=dt*.08;if(b.position.y>this._WTopY+.02||b.material.opacity<=0){scene.remove(b);arr.splice(arr.indexOf(b),1);}});
+      rv('r-evolt',s.volt.toFixed(1),''); rv('r-ecurr',Math.round(s.curr),s.curr>400?'hot':s.curr>0?'good':''); rv('r-eh2',s.h2.toFixed(1),'good'); rv('r-eo2',s.o2.toFixed(1),'');
+      r.render(scene,cam);};
+    APP.animId=requestAnimationFrame(loop);
+  },
+  _next(){const s=this._st;
+    if(s.step===0){addLog('Distilled water added to cell','log-entry');s.step=1;setStep(1,this.hints);}
+    else if(s.step===1){if(!s.elec){addLog('Add electrolyte first!','log-warn');return;}addLog('Electrolyte confirmed','log-entry');s.step=2;setStep(2,this.hints);}
+    else if(s.step===2){addLog('Carbon electrodes inserted','log-entry');addLog('TIP: raise voltage to begin','log-warn');s.step=3;setStep(3,this.hints);}
+    else if(s.step===3&&s.ratio){s.step=4;setStep(4,this.hints);finishExp();}
+    else addLog('Collect more gas first','log-warn');
+  },
+  _addElec(){const s=this._st;if(s.step<1){addLog('Add water first!','log-warn');return;}if(s.elec){addLog('Already added','log-warn');return;}s.elec=true;this._waterM.color.set(0x2266aa);this._waterM.opacity=.38;addLog('Na₂SO₄ dissolved — conductivity improved','log-entry');document.getElementById('e-conc').value=50;s.conc=50;document.getElementById('e-c-v').textContent='50%';},
+  _reset(){this._st={step:0,volt:0,conc:0,curr:0,h2:0,o2:0,elec:false,ratio:false};document.getElementById('e-volt').value=0;document.getElementById('e-conc').value=0;document.getElementById('e-v-v').textContent='0 V';document.getElementById('e-c-v').textContent='0%';this._waterM.color.set(0x1a5a9f);this._waterM.opacity=.32;this._dispM.emissiveIntensity=.08;this._ledM.emissiveIntensity=.1;this._psuGlow.intensity=0;this._reL.intensity=0;[...this._cathBub,...this._anoBub].forEach(b=>this._s.remove(b));this._cathBub.length=0;this._anoBub.length=0;setStep(0,this.hints);addLog('Experiment reset','log-warn');document.getElementById('progress-fill').style.width='0%';document.getElementById('progress-pct').textContent='0%';},
+  cleanup(){if(this._r){this._r.dispose();this._r=null;}window.removeEventListener('mouseup',this._mup);window.removeEventListener('mousemove',this._mmo);if(this._wh){const c=document.getElementById('lab-canvas-3d');c.removeEventListener('wheel',this._wh);}window.removeEventListener('resize',this._rs);document.getElementById('lab-canvas-3d').classList.remove('active');}
+};
+// ═══════════════════════════════════════════════════════════════
+// PHYSICS — PROJECTILE MOTION
+// ═══════════════════════════════════════════════════════════════
+const ProjectileExp = {
+  shortName:'Projectile', badge:'EXP-P01: PROJECTILE MOTION',
+  title:'Projectile Motion — Kinematic Equations',
+  desc:'Launch a projectile from a cannon and trace its parabolic trajectory. Verify x=v₀cosθ·t and y=v₀sinθ·t−½gt².',
+  steps:['Set launch angle using slider','Set initial velocity','Press FIRE to launch projectile','Observe parabolic trajectory and peak','Measure range, height, and flight time'],
+  hints:[
+    'Adjust the angle (0–90°). Maximum range occurs at 45° (no air resistance).',
+    'Higher velocity → longer range and greater maximum height.',
+    'Press FIRE! Watch the projectile trace its parabolic path.',
+    'The dotted path shows the theoretical trajectory. Range = v₀²sin(2θ)/g.',
+    '🎉 R = '+''+'m. Notice angles θ and 90°−θ give the same range!'
+  ],
+  axesHint:'',labels:[],
+  readings:[
+    {id:'r-prange',label:'Range',unit:'m',init:'—'},
+    {id:'r-pheight',label:'Max Height',unit:'m',init:'—'},
+    {id:'r-ptime',label:'Flight Time',unit:'s',init:'—'},
+    {id:'r-pangle',label:'Angle',unit:'°',init:'45'},
+  ],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Launch Angle <span id="p-ang-v">45°</span></div><input type="range" id="p-ang" min="5" max="85" step="1" value="45"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Initial Velocity <span id="p-vel-v">40 m/s</span></div><input type="range" id="p-vel" min="10" max="80" step="1" value="40"></div>
+    <div class="ctrl-row"><label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer"><input type="checkbox" id="p-air"> Air Resistance</label></div>
+    <button class="btn primary" id="p-fire">🔥 FIRE</button>
+    <button class="btn" id="p-clear">✕ CLEAR PATHS</button>
+    <button class="btn primary" id="p-next" style="margin-top:4px">▶ NEXT STEP</button>`,
+  st:{},
+  init(){
+    const {ctx,W,H}=setup2D(); this._W=W;this._H=H;this._ctx=ctx;
+    const OX=80,OY=H-60,SCALE=W/600;
+    this._OX=OX;this._OY=OY;this._SCALE=SCALE;
+    this.st={angle:45,vel:40,air:false,firing:false,proj:null,t:0,paths:[],step:0};
+    document.getElementById('p-ang').oninput=e=>{this.st.angle=+e.target.value;document.getElementById('p-ang-v').textContent=e.target.value+'°';rv('r-pangle',e.target.value,'');};
+    document.getElementById('p-vel').oninput=e=>{this.st.vel=+e.target.value;document.getElementById('p-vel-v').textContent=e.target.value+' m/s';};
+    document.getElementById('p-air').onchange=e=>this.st.air=e.target.checked;
+    document.getElementById('p-fire').onclick=()=>this._fire();
+    document.getElementById('p-clear').onclick=()=>{this.st.paths=[];this.st.proj=null;this.st.firing=false;};
+    document.getElementById('p-next').onclick=()=>this._next();
+    let last=0;
+    const loop=t=>{APP.animId=requestAnimationFrame(loop);const dt=Math.min((t-last)/1000,.04);last=t;this._update(dt);this._draw();};
+    APP.animId=requestAnimationFrame(loop);
+  },
+  _next(){const s=this.st;if(s.step<4){s.step++;setStep(s.step,this.hints);if(s.step===4)finishExp();}},
+  _fire(){
+    const s=this.st,a=s.angle*Math.PI/180;
+    s.proj={x:0,y:0,vx:s.vel*Math.cos(a),vy:s.vel*Math.sin(a),trail:[],maxH:0};
+    s.firing=true; s.t=0;
+    const R=s.vel*s.vel*Math.sin(2*a)/9.81,H2=s.vel*s.vel*Math.sin(a)*Math.sin(a)/(2*9.81),T=2*s.vel*Math.sin(a)/9.81;
+    rv('r-prange',R.toFixed(1),''); rv('r-pheight',H2.toFixed(1),''); rv('r-ptime',T.toFixed(2),''); rv('r-pangle',s.angle,'');
+    addLog('FIRE! θ='+s.angle+'° v₀='+s.vel+'m/s','log-entry');
+    addLog('Predicted R='+R.toFixed(1)+'m H='+H2.toFixed(1)+'m','log-entry');
+  },
+  _update(dt){
+    const s=this.st;if(!s.firing||!s.proj)return;
+    const p=s.proj,g=9.81,k=s.air?.08:0;
+    const speed=Math.hypot(p.vx,p.vy);
+    p.vx-=k*p.vx*speed*dt; p.vy-=g*dt+k*p.vy*speed*dt;
+    p.x+=p.vx*dt*60; p.y+=p.vy*dt*60;
+    p.trail.push({x:p.x,y:p.y});
+    if(p.y>p.maxH)p.maxH=p.y;
+    if(p.y<0&&s.t>0.1){
+      s.paths.push([...p.trail]); if(s.paths.length>5)s.paths.shift();
+      s.firing=false; s.proj=null;
+    }
+    s.t+=dt;
+  },
+  _draw(){
+    const ctx=this._ctx,W=this._W,H=this._H,s=this.st;
+    const OX=this._OX,OY=this._OY,SC=this._SCALE;
+    // Sky gradient
+    const sky=ctx.createLinearGradient(0,0,0,OY);
+    sky.addColorStop(0,'#0a0e1a'); sky.addColorStop(1,'#0f172a');
+    ctx.fillStyle=sky; ctx.fillRect(0,0,W,OY);
+    // Ground
+    ctx.fillStyle='#1a2e1a'; ctx.fillRect(0,OY,W,H-OY);
+    ctx.fillStyle='rgba(104,211,145,.3)'; ctx.fillRect(0,OY,W,3);
+    // Grid
+    ctx.strokeStyle='rgba(99,179,237,.08)'; ctx.lineWidth=1;
+    for(let x=OX;x<W;x+=SC*50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,OY);ctx.stroke();}
+    for(let y=OY;y>0;y-=SC*50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    // Axis labels
+    ctx.fillStyle='rgba(113,128,150,.5)'; ctx.font='8px Space Mono'; ctx.textAlign='center';
+    for(let x=0;x<=500;x+=50){const px=OX+x*SC;if(px>W-20)break;ctx.fillText(x+'m',px,H-10);}
+    ctx.textAlign='right';
+    for(let y=0;y<=200;y+=50){const py=OY-y*SC;if(py<10)break;ctx.fillText(y+'m',OX-4,py+3);}
+    // Axes
+    ctx.strokeStyle='rgba(99,179,237,.3)'; ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(OX,10);ctx.lineTo(OX,OY+2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(OX-2,OY);ctx.lineTo(W-10,OY);ctx.stroke();
+    // Past trajectories (faded)
+    const fadeColors=['rgba(99,179,237,.2)','rgba(104,211,145,.2)','rgba(246,173,85,.2)','rgba(180,148,244,.2)','rgba(252,129,129,.2)'];
+    s.paths.forEach((path,pi)=>{
+      ctx.beginPath(); ctx.strokeStyle=fadeColors[pi%fadeColors.length]; ctx.lineWidth=1.5; ctx.setLineDash([4,4]);
+      path.forEach((pt,i)=>{const px=OX+pt.x*SC,py=OY-pt.y*SC;i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);});
+      ctx.stroke(); ctx.setLineDash([]);
+    });
+    // Cannon
+    const ang=s.angle*Math.PI/180;
+    ctx.fillStyle='#4a5568'; ctx.beginPath(); ctx.arc(OX,OY,20,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(99,179,237,.5)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.save(); ctx.translate(OX,OY); ctx.rotate(-ang);
+    ctx.fillStyle='#2d3748'; ctx.fillRect(0,-9,50,18); ctx.strokeStyle='rgba(99,179,237,.6)'; ctx.lineWidth=1.5; ctx.strokeRect(0,-9,50,18);
+    ctx.restore();
+    ctx.fillStyle='rgba(113,128,150,.7)'; ctx.font='8px Space Mono'; ctx.textAlign='left'; ctx.fillText('CANNON',OX-8,OY+16);
+    ctx.fillText(s.angle+'°',OX+25,OY-22);
+    // Live projectile
+    if(s.firing&&s.proj){
+      const p=s.proj;
+      // Trail
+      ctx.beginPath(); ctx.strokeStyle='rgba(252,129,129,.6)'; ctx.lineWidth=2; ctx.setLineDash([]);
+      p.trail.forEach((pt,i)=>{const px=OX+pt.x*SC,py=OY-pt.y*SC;i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);});
+      ctx.stroke();
+      // Ball
+      const bx=OX+p.x*SC,by=OY-p.y*SC;
+      const g2=ctx.createRadialGradient(bx,by,0,bx,by,12); g2.addColorStop(0,'rgba(252,129,129,1)'); g2.addColorStop(1,'rgba(252,129,129,0)');
+      ctx.fillStyle=g2; ctx.beginPath(); ctx.arc(bx,by,12,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(bx,by,6,0,Math.PI*2); ctx.fillStyle='#fc8181'; ctx.fill();
+    }
+    // Velocity vector hint
+    if(!s.firing){
+      ctx.strokeStyle='rgba(246,173,85,.5)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(OX,OY); ctx.lineTo(OX+Math.cos(-ang)*60,OY+Math.sin(-ang)*60); ctx.stroke();
+      ctx.fillStyle='rgba(246,173,85,.8)'; ctx.font='9px Space Mono'; ctx.textAlign='left'; ctx.fillText('v₀='+s.vel+'m/s',OX+12,OY-30);
+    }
+  },
+  cleanup(){}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// PHYSICS — WAVE INTERFERENCE
+// ═══════════════════════════════════════════════════════════════
+const WaveExp = {
+  shortName:'Wave Interference', badge:'EXP-P02: WAVE INTERFERENCE',
+  title:'Young\'s Double-Source Wave Interference',
+  desc:'Two coherent point sources emit circular waves. Observe constructive and destructive interference patterns forming nodes and antinodes.',
+  steps:['Place source S1 in the medium','Position S2 at separation d','Activate both sources','Observe nodal lines (dark) and antinodes (bright)','Measure path difference at various points'],
+  hints:[
+    'S1 is active. Add S2 to observe interference. Drag sources to reposition.',
+    'Two sources create a characteristic interference pattern — like Young\'s double slit.',
+    'Bright bands = constructive (Δd = nλ). Dark bands = destructive (Δd = (n+½)λ).',
+    'Nod lines fan out from the centre. Frequency controls wavelength (v=fλ).',
+    '🎉 Double-source interference confirmed! Wavelength = '+''+'cm.'
+  ],
+  axesHint:'🖱 DRAG sources · Hover for path difference',
+  labels:[],
+  readings:[
+    {id:'r-wfreq',label:'Frequency',unit:'Hz',init:'3'},
+    {id:'r-wlen',label:'Wavelength',unit:'cm',init:'—'},
+    {id:'r-wspd',label:'Wave Speed',unit:'m/s',init:'—'},
+    {id:'r-wpd',label:'Path Diff',unit:'cm',init:'—'},
+  ],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Frequency <span id="w-f-v">3 Hz</span></div><input type="range" id="w-freq" min="1" max="8" step="0.5" value="3"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Amplitude <span id="w-a-v">1.0×</span></div><input type="range" id="w-amp" min="0.2" max="2" step="0.1" value="1"></div>
+    <button class="btn" id="w-tog1">S1: ON</button>
+    <button class="btn" id="w-tog2">S2: ON</button>
+    <button class="btn primary" id="w-next">▶ NEXT STEP</button>`,
+  st:{},
+  _imgData:null,_frameC:0,
+  init(){
+    const {ctx,W,H}=setup2D(); this._W=W;this._H=H;this._ctx=ctx;
+    this.st={freq:3,amp:1,s1:{x:W/2-80,y:H/2,on:true},s2:{x:W/2+80,y:H/2,on:false},t:0,step:0,dragSrc:null,mx:W/2,my:H/2};
+    this._imgData=ctx.createImageData(W,H); this._frameC=0;
+    document.getElementById('w-freq').oninput=e=>{this.st.freq=+e.target.value;document.getElementById('w-f-v').textContent=(+e.target.value)+' Hz';};
+    document.getElementById('w-amp').oninput=e=>{this.st.amp=+e.target.value;document.getElementById('w-a-v').textContent=(+e.target.value).toFixed(1)+'×';};
+    document.getElementById('w-tog1').onclick=()=>{this.st.s1.on=!this.st.s1.on;document.getElementById('w-tog1').textContent='S1: '+(this.st.s1.on?'ON':'OFF');addLog('S1 '+(this.st.s1.on?'activated':'deactivated'),'log-entry');};
+    document.getElementById('w-tog2').onclick=()=>{this.st.s2.on=!this.st.s2.on;document.getElementById('w-tog2').textContent='S2: '+(this.st.s2.on?'ON':'OFF');addLog('S2 '+(this.st.s2.on?'activated':'deactivated'),'log-entry');};
+    document.getElementById('w-next').onclick=()=>this._next();
+    const c=document.getElementById('lab-canvas-2d');
+    c.onmousedown=e=>{const r=c.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;const s=this.st;if(Math.hypot(mx-s.s1.x,my-s.s1.y)<18)this.st.dragSrc='s1';else if(Math.hypot(mx-s.s2.x,my-s.s2.y)<18)this.st.dragSrc='s2';};
+    c.onmousemove=e=>{const r=c.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;this.st.mx=mx;this.st.my=my;if(this.st.dragSrc){this.st[this.st.dragSrc].x=mx;this.st[this.st.dragSrc].y=my;}};
+    c.onmouseup=()=>this.st.dragSrc=null;
+    let last=0;
+    const loop=t=>{APP.animId=requestAnimationFrame(loop);const dt=Math.min((t-last)/1000,.04);last=t;this._update(dt);this._draw();};
+    APP.animId=requestAnimationFrame(loop);
+  },
+  _next(){const s=this.st;if(s.step===1){s.s2.on=true;document.getElementById('w-tog2').textContent='S2: ON';addLog('S2 activated','log-entry');}if(s.step<4){s.step++;setStep(s.step,this.hints);if(s.step===4)finishExp();}},
+  _update(dt){
+    const s=this.st; s.t+=dt;
+    const wl=100/s.freq; const spd=(100/s.freq)*s.freq;
+    rv('r-wfreq',s.freq,''); rv('r-wlen',wl.toFixed(1),''); rv('r-wspd',spd.toFixed(0),'');
+    const d1=Math.hypot(s.mx-s.s1.x,s.my-s.s1.y)*.2,d2=Math.hypot(s.mx-s.s2.x,s.my-s.s2.y)*.2;
+    rv('r-wpd',Math.abs(d1-d2).toFixed(1),'');
+    this._frameC++;
+  },
+  _computePattern(){
+    const s=this.st,W=this._W,H=this._H,data=this._imgData.data;
+    const k=2*Math.PI/(100/s.freq),om=s.freq*2*Math.PI,t=s.t;
+    for(let y=0;y<H;y+=2){for(let x=0;x<W;x+=2){
+      let A=0;
+      if(s.s1.on){const d=Math.hypot(x-s.s1.x,y-s.s1.y);A+=s.amp*Math.sin(k*d-om*t)/(1+d*.01);}
+      if(s.s2.on){const d=Math.hypot(x-s.s2.x,y-s.s2.y);A+=s.amp*Math.sin(k*d-om*t)/(1+d*.01);}
+      const norm=clamp((A+2)/4,0,1);
+      const bright=Math.round(norm*255);
+      const r2=Math.round(lerp(10,bright*.4,norm)),g2=Math.round(lerp(14,bright*.7,norm)),b2=Math.round(lerp(26,bright,norm));
+      for(let dy=0;dy<2;dy++){for(let dx=0;dx<2;dx++){const idx=((y+dy)*W+(x+dx))*4;data[idx]=r2;data[idx+1]=g2;data[idx+2]=b2;data[idx+3]=255;}}
+    }}
+  },
+  _draw(){
+    const ctx=this._ctx,W=this._W,H=this._H,s=this.st;
+    if(this._frameC%3===0){this._computePattern();ctx.putImageData(this._imgData,0,0);}
+    // Sources
+    [{src:s.s1,col:'#63b3ed',label:'S1'},{src:s.s2,col:'#68d391',label:'S2'}].forEach(({src,col,label})=>{
+      ctx.beginPath(); ctx.arc(src.x,src.y,12,0,Math.PI*2);
+      ctx.fillStyle=src.on?col+'44':'rgba(113,128,150,.3)'; ctx.fill();
+      ctx.strokeStyle=src.on?col:'rgba(113,128,150,.5)'; ctx.lineWidth=2; ctx.stroke();
+      if(src.on){const g=ctx.createRadialGradient(src.x,src.y,0,src.x,src.y,30);g.addColorStop(0,col+'55');g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(src.x,src.y,30,0,Math.PI*2);ctx.fill();}
+      ctx.fillStyle='rgba(255,255,255,.9)'; ctx.font='bold 9px Space Mono'; ctx.textAlign='center'; ctx.fillText(label,src.x,src.y+4);
+      ctx.fillStyle='rgba(255,255,255,.5)'; ctx.font='8px Space Mono'; ctx.fillText(src.on?'ACTIVE':'OFF',src.x,src.y+18);
+    });
+    // Cursor path-diff indicator
+    const d1=Math.hypot(s.mx-s.s1.x,s.my-s.s1.y)*.2,d2=Math.hypot(s.mx-s.s2.x,s.my-s.s2.y)*.2;
+    const pd=Math.abs(d1-d2);
+    const wl=100/s.freq;
+    const type=pd<wl*.1?'CONSTRUCTIVE':pd%wl<wl*.15||pd%wl>wl*.85?'CONSTRUCTIVE':'DESTRUCTIVE';
+    ctx.fillStyle='rgba(10,14,26,.8)'; ctx.fillRect(W-160,H-34,155,24); ctx.strokeStyle='rgba(99,179,237,.3)'; ctx.lineWidth=1; ctx.strokeRect(W-160,H-34,155,24);
+    ctx.fillStyle=type==='CONSTRUCTIVE'?'#68d391':'#fc8181'; ctx.font='9px Space Mono'; ctx.textAlign='left'; ctx.fillText('Δd='+pd.toFixed(1)+'cm · '+type,W-155,H-19);
+  },
+  cleanup(){const c=document.getElementById('lab-canvas-2d');c.onmousedown=null;c.onmousemove=null;c.onmouseup=null;}
+};
+
+// ─── SECTION & EXPERIMENT REGISTRY ──────────────────────────────────────────
+const SECTIONS = {
+  biology:     { icon:'🧬', label:'BIOLOGY',        color:'#68d391', exps:['bio/osmosis','bio/mitosis'] },
+  thermo:      { icon:'🌡️', label:'THERMODYNAMICS', color:'#f6ad55', exps:['thermo/gas','thermo/heat'] },
+  electricity: { icon:'⚡', label:'ELECTRICITY',    color:'#63b3ed', exps:['elec/ohm','elec/induction'] },
+  chemistry:   { icon:'⚗️', label:'CHEMISTRY',      color:'#b794f4', exps:['chem/titration','chem/electrolysis'] },
+  physics:     { icon:'🔭', label:'PHYSICS',         color:'#fc8181', exps:['phys/projectile','phys/waves'] },
+};
+
+const EXPERIMENTS = {
+  'bio/osmosis':         OsmosisExp,
+  'bio/mitosis':         MitosisExp,
+  'thermo/gas':          GasExp,
+  'thermo/heat':         HeatExp,
+  'elec/ohm':            OhmExp,
+  'elec/induction':      InductionExp,
+  'chem/titration':      TitrationExp,
+  'chem/electrolysis':   ElectrolysisExp,
+  'phys/projectile':     ProjectileExp,
+  'phys/waves':          WaveExp,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// P1 — QUIZ CONTENT (one quiz per experiment)
+// ═══════════════════════════════════════════════════════════════
+const QUIZZES = {
+  'bio/osmosis':[
+    {q:'Water moves across a semi-permeable membrane from a region of…',options:['Low solute → high solute','High solute → low solute','High pressure → low pressure only','It never moves'],answer:0,explain:'Osmosis: water flows toward higher solute concentration to equalise it.'},
+    {q:'What does the van\'t Hoff equation Π = iMRT calculate?',options:['Reaction rate','Osmotic pressure','Membrane thickness','pH'],answer:1,explain:'Π is osmotic pressure; i=ionisation factor, M=molarity, R=gas const, T=temp.'},
+    {q:'Which particle CANNOT cross the membrane in this sim?',options:['Water','Solute (NaCl)','Both','Neither'],answer:1,explain:'A selectively permeable membrane blocks solute but passes water.'},
+  ],
+  'bio/mitosis':[
+    {q:'During which phase do chromosomes align at the cell\'s equator?',options:['Prophase','Metaphase','Anaphase','Telophase'],answer:1,explain:'Metaphase = alignment at the metaphase plate.'},
+    {q:'Sister chromatids separate to opposite poles during…',options:['Interphase','Prophase','Anaphase','Cytokinesis'],answer:2,explain:'Anaphase pulls chromatids apart via spindle fibres.'},
+    {q:'Mitosis produces how many daughter cells?',options:['1','2','4','8'],answer:1,explain:'Two genetically identical diploid daughter cells.'},
+  ],
+  'thermo/gas':[
+    {q:'In PV = nRT, raising T at fixed V causes pressure to…',options:['Fall','Rise','Stay constant','Become zero'],answer:1,explain:'P ∝ T at constant V (Gay-Lussac). Faster particles hit walls harder.'},
+    {q:'Boyle\'s Law (fixed T) states P and V are…',options:['Directly proportional','Inversely proportional','Unrelated','Equal'],answer:1,explain:'PV = constant → P ∝ 1/V.'},
+    {q:'Particle average speed is proportional to…',options:['T','√T','T²','1/T'],answer:1,explain:'KE ∝ T, and KE = ½mv² → v ∝ √T.'},
+  ],
+  'thermo/heat':[
+    {q:'Which material conducts heat fastest?',options:['Glass','Steel','Copper','All equal'],answer:2,explain:'Copper α≈117 mm²/s ≫ steel (12) ≫ glass (0.5).'},
+    {q:'The heat equation models heat transfer by…',options:['Convection','Radiation','Conduction','Evaporation'],answer:2,explain:'Finite-difference diffusion = conduction along the rod.'},
+    {q:'At steady state the temperature gradient is…',options:['Random','Linear (constant slope)','Exponential','Zero everywhere'],answer:1,explain:'Steady-state conduction with fixed ends → linear profile.'},
+  ],
+  'elec/ohm':[
+    {q:'If V doubles and R is fixed, current I…',options:['Doubles','Halves','Unchanged','Quadruples'],answer:0,explain:'I = V/R, so I ∝ V.'},
+    {q:'Power dissipated in the resistor equals…',options:['V/R','I²R','I/R','V·R'],answer:1,explain:'P = I²R = VI = V²/R.'},
+    {q:'Increasing resistance at fixed voltage makes the bulb…',options:['Brighter','Dimmer','Unchanged','Explode'],answer:1,explain:'Higher R → lower I → lower P → dimmer.'},
+  ],
+  'elec/induction':[
+    {q:'Faraday\'s law: induced EMF is proportional to…',options:['Magnet position','Rate of change of flux','Coil colour','Air temperature'],answer:1,explain:'EMF = −dΦ/dt. A still magnet induces nothing.'},
+    {q:'Moving the magnet faster produces…',options:['Less EMF','More EMF','No EMF','Reversed only'],answer:1,explain:'Higher dΦ/dt → larger EMF.'},
+    {q:'Reversing magnet polarity does what to the induced current?',options:['Doubles it','Reverses its direction','Stops it','Nothing'],answer:1,explain:'Flux sign flips → induced current direction flips (Lenz).'},
+  ],
+  'chem/titration':[
+    {q:'Phenolphthalein turns pink at approximately…',options:['pH 2','pH 7','pH 8.2','pH 14'],answer:2,explain:'Phenolphthalein endpoint ≈ pH 8.2–10.'},
+    {q:'At the equivalence point of a strong acid–strong base titration…',options:['moles acid = moles base','pH = 0','no reaction','base is in excess'],answer:0,explain:'Equivalence = stoichiometric neutralisation, moles match.'},
+    {q:'The burette dispenses the…',options:['Acid','Indicator','Titrant (NaOH)','Water'],answer:2,explain:'NaOH titrant is added from the burette into the flask.'},
+  ],
+  'chem/electrolysis':[
+    {q:'Electrolysis of water yields H₂ and O₂ in a volume ratio of…',options:['1:1','2:1','1:2','3:1'],answer:1,explain:'2H₂O → 2H₂ + O₂ → twice as much hydrogen by volume.'},
+    {q:'Hydrogen gas forms at the…',options:['Anode (+)','Cathode (−)','Both','Neither'],answer:1,explain:'Reduction at the cathode produces H₂.'},
+    {q:'Na₂SO₄ is added to…',options:['Colour the water','Increase conductivity','Produce chlorine','Slow the reaction'],answer:1,explain:'Electrolyte raises conductivity so current can flow.'},
+  ],
+  'phys/projectile':[
+    {q:'Ignoring air resistance, maximum range occurs at a launch angle of…',options:['30°','45°','60°','90°'],answer:1,explain:'Range = v²sin(2θ)/g, maximised when 2θ=90° → θ=45°.'},
+    {q:'At the peak of the trajectory, vertical velocity is…',options:['Maximum','Zero','Equal to horizontal','Negative'],answer:1,explain:'v_y = 0 at apex before falling back.'},
+    {q:'Horizontal velocity (no drag) during flight is…',options:['Constant','Increasing','Decreasing','Zero'],answer:0,explain:'No horizontal force → v_x = v₀cosθ stays constant.'},
+  ],
+  'phys/waves':[
+    {q:'Constructive interference occurs when path difference equals…',options:['½λ','nλ','(n+½)λ','λ/4'],answer:1,explain:'Whole-wavelength path difference → crests align → bright.'},
+    {q:'Destructive interference produces…',options:['Bright antinodes','Dark nodes','Higher frequency','Faster waves'],answer:1,explain:'Out-of-phase waves cancel → nodal (dark) lines.'},
+    {q:'Increasing frequency (same speed) makes wavelength…',options:['Longer','Shorter','Unchanged','Zero'],answer:1,explain:'v = fλ → λ = v/f, so f↑ ⇒ λ↓.'},
+  ],
+};
+
+// ─── BOOT ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderModeBtn();
+  updateHomeBadges();
+  showHome();
+});
+</script>
+</body>
+</html>
