@@ -154,11 +154,11 @@
     </div>
     <div class="lab-grid">
       <div class="lab-card" style="--card-color:#68d391" onclick="openSection('biology')">
-        <span class="card-count">2 experiments</span>
+        <span class="card-count">5 experiments</span>
         <span class="card-icon">🧬</span>
         <div class="card-title">CELL BIOLOGY</div>
-        <div class="card-desc">Observe osmosis across a semi-permeable membrane and step through mitosis with animated chromosome movement.</div>
-        <div class="card-exps"><span class="card-exp-tag">Osmosis</span><span class="card-exp-tag">Mitosis</span></div>
+        <div class="card-desc">Osmosis, mitosis, photosynthesis rate, Michaelis–Menten enzyme kinetics, and DNA→mRNA transcription.</div>
+        <div class="card-exps"><span class="card-exp-tag">Osmosis</span><span class="card-exp-tag">Mitosis</span><span class="card-exp-tag">Photosynthesis</span><span class="card-exp-tag">Enzymes</span><span class="card-exp-tag">DNA</span></div>
       </div>
       <div class="lab-card" style="--card-color:#f6ad55" onclick="openSection('thermo')">
         <span class="card-count">2 experiments</span>
@@ -175,18 +175,25 @@
         <div class="card-exps"><span class="card-exp-tag">Ohm's Law</span><span class="card-exp-tag">EM Induction</span></div>
       </div>
       <div class="lab-card" style="--card-color:#b794f4" onclick="openSection('chemistry')">
-        <span class="card-count">2 experiments · 3D</span>
+        <span class="card-count">4 experiments · 3D</span>
         <span class="card-icon">⚗️</span>
         <div class="card-title">CHEMISTRY</div>
-        <div class="card-desc">Full 3D WebGL lab — acid-base titration with Erlenmeyer flask and pH colour shift, plus electrolysis of water.</div>
-        <div class="card-exps"><span class="card-exp-tag">Acid-Base Titration</span><span class="card-exp-tag">Electrolysis</span></div>
+        <div class="card-desc">3D acid-base titration & electrolysis, collision-theory reaction rates, and metal-ion flame tests.</div>
+        <div class="card-exps"><span class="card-exp-tag">Titration</span><span class="card-exp-tag">Electrolysis</span><span class="card-exp-tag">Reaction Rates</span><span class="card-exp-tag">Flame Test</span></div>
       </div>
       <div class="lab-card" style="--card-color:#fc8181" onclick="openSection('physics')">
-        <span class="card-count">2 experiments</span>
+        <span class="card-count">5 experiments</span>
         <span class="card-icon">🔭</span>
         <div class="card-title">PHYSICS</div>
-        <div class="card-desc">Launch projectiles and trace parabolic trajectories. Visualise constructive and destructive wave interference patterns.</div>
-        <div class="card-exps"><span class="card-exp-tag">Projectile Motion</span><span class="card-exp-tag">Wave Interference</span></div>
+        <div class="card-desc">Projectile motion, wave interference, simple pendulum, converging-lens ray diagrams, and 2D collisions.</div>
+        <div class="card-exps"><span class="card-exp-tag">Projectile</span><span class="card-exp-tag">Waves</span><span class="card-exp-tag">Pendulum</span><span class="card-exp-tag">Optics</span><span class="card-exp-tag">Collisions</span></div>
+      </div>
+      <div class="lab-card" style="--card-color:#4fd1c5" onclick="openSection('electronics')">
+        <span class="card-count">2 experiments</span>
+        <span class="card-icon">🔌</span>
+        <div class="card-title">ELECTRONICS</div>
+        <div class="card-desc">RC charge/discharge curves with live time-constant plotting, and digital logic gates with truth tables.</div>
+        <div class="card-exps"><span class="card-exp-tag">RC Circuit</span><span class="card-exp-tag">Logic Gates</span></div>
       </div>
     </div>
   </div>
@@ -470,7 +477,9 @@ function rv(id,val,cls){
 function setup2D(){
   const c2=document.getElementById('lab-canvas-2d'),c3=document.getElementById('lab-canvas-3d');
   c2.classList.add('active'); c3.classList.remove('active');
-  const W=c2.parentElement.clientWidth, H=c2.parentElement.clientHeight;
+  let W=c2.parentElement.clientWidth, H=c2.parentElement.clientHeight;
+  if(W<50) W=Math.max(320,window.innerWidth-260);  // fallback before layout settles
+  if(H<50) H=Math.max(320,Math.round(window.innerHeight*0.6));
   c2.width=W; c2.height=H;
   return {canvas:c2,ctx:c2.getContext('2d'),W,H};
 }
@@ -1739,26 +1748,609 @@ const WaveExp = {
   cleanup(){const c=document.getElementById('lab-canvas-2d');c.onmousedown=null;c.onmousemove=null;c.onmouseup=null;}
 };
 
+// ═══════════════════════════════════════════════════════════════
+// BIOLOGY — PHOTOSYNTHESIS RATE
+// ═══════════════════════════════════════════════════════════════
+const PhotosynthesisExp = {
+  shortName:'Photosynthesis', badge:'EXP-B03: PHOTOSYNTHESIS',
+  title:'Rate of Photosynthesis & Limiting Factors',
+  desc:'Vary light intensity, CO₂ concentration and temperature. O₂ bubbles measure the rate; the lowest factor limits it.',
+  steps:['Set the light intensity','Set CO₂ concentration','Set temperature','Observe O₂ bubble output rate','Identify the current limiting factor'],
+  hints:[
+    'Light powers the light-dependent reactions. More light → faster, until another factor caps it.',
+    'CO₂ is the raw material for the Calvin cycle. Low CO₂ throttles output.',
+    'Enzymes peak near 25–35 °C; too hot denatures them.',
+    'Bubble rate ∝ overall photosynthesis rate.',
+    'The limiting factor is whichever input is lowest — raise it and the rate climbs.'],
+  labels:[{id:'lbl-a',text:'☀ Light source',top:'12%',left:'8%'},{id:'lbl-b',text:'O₂ bubbles',top:'30%',left:'55%'}],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Light intensity <span id="ps-l-v">60%</span></div><input type="range" id="ps-light" min="0" max="100" value="60" oninput="PhotosynthesisExp.upd()"></div>
+    <div class="ctrl-row"><div class="ctrl-label">CO₂ level <span id="ps-c-v">60%</span></div><input type="range" id="ps-co2" min="0" max="100" value="60" oninput="PhotosynthesisExp.upd()"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Temperature <span id="ps-t-v">25°C</span></div><input type="range" id="ps-temp" min="0" max="50" value="25" oninput="PhotosynthesisExp.upd()"></div>`,
+  readings:[{id:'ps-rate',label:'Rate',unit:'%'},{id:'ps-o2',label:'O₂ bubbles',unit:''},{id:'ps-lim',label:'Limiting factor',unit:''},{id:'ps-temp-r',label:'Temp factor',unit:'%'}],
+  init(){
+    const s=setup2D(); this.s=s; this.bubbles=[]; this.o2=0; this._t=0; this._seen={};
+    this.upd(); const self=this;
+    (function loop(){ self.draw(); APP.animId=requestAnimationFrame(loop); })();
+  },
+  upd(){
+    const L=+document.getElementById('ps-light').value, C=+document.getElementById('ps-co2').value, T=+document.getElementById('ps-temp').value;
+    document.getElementById('ps-l-v').textContent=L+'%'; document.getElementById('ps-c-v').textContent=C+'%'; document.getElementById('ps-t-v').textContent=T+'°C';
+    // temperature bell curve, optimum ~30
+    const tf=Math.max(0,1-Math.pow((T-30)/22,2));
+    this.tf=tf; this.rate=Math.min(L,C)*tf;  // limiting factor = min of light/CO2, scaled by temp
+    this.lim = (tf<0.6)?'Temperature':(L<=C?'Light':'CO₂');
+    rv('ps-rate',this.rate.toFixed(0),this.rate>60?'good':this.rate<25?'hot':'warn');
+    rv('ps-lim',this.lim,'warn'); rv('ps-temp-r',(tf*100).toFixed(0));
+    if(!this._seen[this.lim]){this._seen[this.lim]=1; if(Object.keys(this._seen).length>=2) setStep(4,this.hints); else setStep(3,this.hints);}
+  },
+  draw(){
+    const {ctx,W,H}=this.s; ctx.clearRect(0,0,W,H);
+    // sun
+    const li=+document.getElementById('ps-light').value/100;
+    const sx=W*0.16, sy=H*0.2;
+    const g=ctx.createRadialGradient(sx,sy,4,sx,sy,70); g.addColorStop(0,`rgba(246,173,85,${.4+li*.6})`); g.addColorStop(1,'transparent');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(sx,sy,70,0,7); ctx.fill();
+    ctx.fillStyle='#f6ad55'; ctx.beginPath(); ctx.arc(sx,sy,22,0,7); ctx.fill();
+    // beaker with aquatic plant
+    const bx=W*0.42, by=H*0.25, bw=W*0.3, bh=H*0.6;
+    ctx.strokeStyle='rgba(99,179,237,.4)'; ctx.lineWidth=2; ctx.strokeRect(bx,by,bw,bh);
+    ctx.fillStyle='rgba(99,179,237,.06)'; ctx.fillRect(bx,by,bw,bh);
+    // plant stem
+    ctx.strokeStyle='#68d391'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(bx+bw/2,by+bh); ctx.lineTo(bx+bw/2,by+bh*0.3); ctx.stroke();
+    for(let i=0;i<5;i++){const ly=by+bh*0.35+i*bh*0.11; ctx.beginPath(); ctx.ellipse(bx+bw/2+(i%2?18:-18),ly,16,7,(i%2?0.5:-0.5),0,7); ctx.fillStyle='#48bb78'; ctx.fill();}
+    // bubbles spawn ∝ rate
+    this._t++; if(this._t%Math.max(2,Math.round(40-this.rate*0.35))===0 && this.rate>1){ this.bubbles.push({x:bx+bw/2+rnd(-20,20),y:by+bh*0.35,r:rnd(2,4)}); this.o2++; rv('ps-o2',this.o2); }
+    ctx.fillStyle='rgba(180,230,255,.7)';
+    this.bubbles=this.bubbles.filter(b=>{ b.y-=1.2; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.fill(); return b.y>by-4; });
+    // 6CO2+6H2O->C6H12O6+6O2 caption
+    ctx.fillStyle='rgba(226,232,240,.5)'; ctx.font='11px Space Mono'; ctx.textAlign='center';
+    ctx.fillText('6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂', W/2, H-16);
+  },
+  cleanup(){}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// BIOLOGY — ENZYME KINETICS (Michaelis–Menten)
+// ═══════════════════════════════════════════════════════════════
+const EnzymeExp = {
+  shortName:'Enzyme Kinetics', badge:'EXP-B04: ENZYME KINETICS',
+  title:'Michaelis–Menten Enzyme Kinetics',
+  desc:'Increase substrate concentration and trace the reaction velocity curve. Read Vmax and Km; add an inhibitor to see the shift.',
+  steps:['Start with low substrate','Increase [S] — watch velocity rise','Approach Vmax (saturation)','Read Km at half-Vmax','Add a competitive inhibitor — Km rises'],
+  hints:[
+    'At low [S], rate rises almost linearly — enzymes have spare capacity.',
+    'v = Vmax·[S] / (Km + [S]). Plotting builds the hyperbola.',
+    'As [S] climbs, enzymes saturate and v plateaus at Vmax.',
+    'Km = the [S] giving half of Vmax — a measure of enzyme affinity.',
+    'A competitive inhibitor raises apparent Km (same Vmax, needs more S).'],
+  labels:[{id:'lbl-a',text:'v vs [S] curve',top:'12%',left:'52%'}],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Substrate [S] <span id="ez-s-v">20</span></div><input type="range" id="ez-s" min="0" max="100" value="20" oninput="EnzymeExp.upd()"></div>
+    <button class="btn" id="ez-inh" onclick="EnzymeExp.toggleInh()">ADD COMPETITIVE INHIBITOR</button>`,
+  readings:[{id:'ez-v',label:'Velocity v',unit:''},{id:'ez-vmax',label:'Vmax',unit:''},{id:'ez-km',label:'Km',unit:''},{id:'ez-pct',label:'% of Vmax',unit:'%'}],
+  init(){
+    const s=setup2D(); this.s=s; this.Vmax=100; this.Km=25; this.inh=false; this.curve=[]; this._mx=0;
+    this.upd(); const self=this; (function loop(){ self.draw(); APP.animId=requestAnimationFrame(loop); })();
+  },
+  toggleInh(){ this.inh=!this.inh; this.Km=this.inh?50:25; document.getElementById('ez-inh').className='btn'+(this.inh?' primary':''); document.getElementById('ez-inh').textContent=this.inh?'REMOVE INHIBITOR':'ADD COMPETITIVE INHIBITOR'; addLog(this.inh?'Competitive inhibitor added — Km doubled':'Inhibitor removed','log-warn'); this.curve=[]; this.upd(); setStep(4,this.hints); },
+  upd(){
+    const S=+document.getElementById('ez-s').value; document.getElementById('ez-s-v').textContent=S;
+    const v=this.Vmax*S/(this.Km+S);
+    rv('ez-v',v.toFixed(1),'good'); rv('ez-vmax',this.Vmax); rv('ez-km',this.Km); rv('ez-pct',(v/this.Vmax*100).toFixed(0));
+    this._mx=Math.max(this._mx,S);
+    if(S<15) setStep(0,this.hints); else if(v/this.Vmax<0.5) setStep(1,this.hints); else if(v/this.Vmax<0.85) setStep(2,this.hints); else setStep(3,this.hints);
+  },
+  draw(){
+    const {ctx,W,H}=this.s; ctx.clearRect(0,0,W,H);
+    const ox=60, oy=H-50, gw=W-120, gh=H-110;
+    // axes
+    ctx.strokeStyle='rgba(99,179,237,.4)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(ox,oy-gh); ctx.lineTo(ox,oy); ctx.lineTo(ox+gw,oy); ctx.stroke();
+    ctx.fillStyle='var(--muted)'; ctx.fillStyle='#718096'; ctx.font='10px Space Mono'; ctx.textAlign='center';
+    ctx.fillText('[S] →',ox+gw/2,oy+24); ctx.save(); ctx.translate(ox-32,oy-gh/2); ctx.rotate(-1.57); ctx.fillText('velocity v',0,0); ctx.restore();
+    // Vmax + half lines
+    ctx.setLineDash([4,4]); ctx.strokeStyle='rgba(252,129,129,.5)';
+    ctx.beginPath(); ctx.moveTo(ox,oy-gh*0.92); ctx.lineTo(ox+gw,oy-gh*0.92); ctx.stroke();
+    ctx.strokeStyle='rgba(246,173,85,.5)'; ctx.beginPath(); ctx.moveTo(ox,oy-gh*0.46); ctx.lineTo(ox+gw,oy-gh*0.46); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle='#fc8181'; ctx.textAlign='left'; ctx.fillText('Vmax',ox+gw-40,oy-gh*0.92-4);
+    ctx.fillStyle='#f6ad55'; ctx.fillText('½Vmax',ox+4,oy-gh*0.46-4);
+    // M-M curve
+    ctx.beginPath(); ctx.strokeStyle='#68d391'; ctx.lineWidth=2;
+    for(let i=0;i<=100;i++){ const S=i; const v=this.Vmax*S/(this.Km+S); const x=ox+gw*(i/100); const y=oy-gh*0.92*(v/this.Vmax); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+    ctx.stroke();
+    // current point
+    const S=+document.getElementById('ez-s').value, v=this.Vmax*S/(this.Km+S);
+    const px=ox+gw*(S/100), py=oy-gh*0.92*(v/this.Vmax);
+    ctx.fillStyle='#63b3ed'; ctx.beginPath(); ctx.arc(px,py,5,0,7); ctx.fill();
+    // Km marker
+    const kx=ox+gw*(this.Km/100); ctx.strokeStyle='rgba(246,173,85,.4)'; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(kx,oy); ctx.lineTo(kx,oy-gh*0.46); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#f6ad55'; ctx.textAlign='center'; ctx.fillText('Km',kx,oy+14);
+  },
+  cleanup(){}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// BIOLOGY — DNA TRANSCRIPTION
+// ═══════════════════════════════════════════════════════════════
+const DNAExp = {
+  shortName:'DNA Transcription', badge:'EXP-B05: DNA TRANSCRIPTION',
+  title:'DNA Transcription — DNA → mRNA',
+  desc:'RNA polymerase reads the template strand and builds complementary mRNA (A→U, T→A, G→C, C→G).',
+  steps:['DNA double helix unwinds','RNA polymerase binds template','Base-pair each nucleotide','Build the mRNA strand','Transcription complete — mRNA released'],
+  hints:[
+    'The double helix unzips to expose the template (bottom) strand.',
+    'RNA polymerase moves 3′→5′ along the template.',
+    'RNA uses Uracil (U) instead of Thymine: A pairs with U.',
+    'Each template base dictates one mRNA base.',
+    'The finished mRNA detaches and exits to the ribosome.'],
+  labels:[{id:'lbl-a',text:'Template strand',top:'62%',left:'10%'},{id:'lbl-b',text:'mRNA (built)',top:'82%',left:'10%'}],
+  controlsHTML:`
+    <button class="btn primary" id="dna-step" onclick="DNAExp.next()">TRANSCRIBE NEXT BASE</button>
+    <button class="btn" onclick="DNAExp.auto()">AUTO-TRANSCRIBE</button>
+    <button class="btn" onclick="DNAExp.reset()">RESET</button>`,
+  readings:[{id:'dna-i',label:'Bases done',unit:''},{id:'dna-cur',label:'Pairing',unit:''},{id:'dna-len',label:'mRNA length',unit:'nt'},{id:'dna-pct',label:'Progress',unit:'%'}],
+  init(){
+    const s=setup2D(); this.s=s;
+    this.template=['T','A','C','G','G','A','T','A','C','G','T','A','C','G','C','T']; // template strand
+    this.map={T:'A',A:'U',C:'G',G:'C'}; this.i=0; this.mrna=[]; this._auto=false;
+    rv('dna-i','0'); rv('dna-cur','—'); rv('dna-len','0'); rv('dna-pct','0');
+    const self=this; (function loop(){ self.draw(); APP.animId=requestAnimationFrame(loop); })();
+  },
+  next(){
+    if(this.i>=this.template.length){ return; }
+    const t=this.template[this.i], m=this.map[t]; this.mrna.push(m);
+    rv('dna-cur',t+'→'+m,'good'); this.i++; rv('dna-i',this.i); rv('dna-len',this.mrna.length); rv('dna-pct',(this.i/this.template.length*100).toFixed(0));
+    addLog('Template '+t+' → mRNA '+m,'log-entry');
+    const p=this.i/this.template.length;
+    setStep(this.i>=this.template.length?4:Math.min(3,1+Math.floor(p*3)),this.hints);
+    if(this.i>=this.template.length){ finishExp(); addLog('mRNA strand complete: 5′-'+this.mrna.join('')+'-3′','log-entry'); }
+  },
+  auto(){ if(this._auto)return; this._auto=true; const self=this; const iv=setInterval(()=>{ if(self.i>=self.template.length||APP.currentExpId!=='bio/dna'){clearInterval(iv);self._auto=false;return;} self.next(); },500); },
+  reset(){ this.i=0; this.mrna=[]; this._auto=false; rv('dna-i','0'); rv('dna-cur','—'); rv('dna-len','0'); rv('dna-pct','0'); setStep(0,this.hints); addLog('Reset','log-warn'); },
+  draw(){
+    const {ctx,W,H}=this.s; ctx.clearRect(0,0,W,H);
+    const n=this.template.length, x0=40, x1=W-40, sp=(x1-x0)/n;
+    const col={A:'#63b3ed',T:'#f6ad55',U:'#f6ad55',C:'#68d391',G:'#b794f4'};
+    const yTop=H*0.32, yTemp=H*0.55, yRNA=H*0.78;
+    // coding strand (top, complementary to template)
+    const comp={T:'A',A:'T',C:'G',G:'C'};
+    ctx.font='bold 13px Space Mono'; ctx.textAlign='center';
+    for(let k=0;k<n;k++){ const x=x0+sp*(k+.5);
+      const cb=comp[this.template[k]];
+      // backbone
+      ctx.strokeStyle='rgba(99,179,237,.2)'; ctx.lineWidth=2;
+      if(k<n-1){ctx.beginPath();ctx.moveTo(x,yTop);ctx.lineTo(x0+sp*(k+1.5),yTop);ctx.stroke();ctx.beginPath();ctx.moveTo(x,yTemp);ctx.lineTo(x0+sp*(k+1.5),yTemp);ctx.stroke();}
+      ctx.fillStyle=col[cb]; ctx.fillText(cb,x,yTop+5);
+      ctx.fillStyle=col[this.template[k]]; ctx.fillText(this.template[k],x,yTemp+5);
+      // pair rung if not yet transcribed (helix closed ahead of polymerase)
+      if(k>=this.i){ ctx.strokeStyle='rgba(226,232,240,.15)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,yTop+8); ctx.lineTo(x,yTemp-8); ctx.stroke(); }
+      // mRNA built
+      if(k<this.mrna.length){ ctx.fillStyle=col[this.mrna[k]]; ctx.fillText(this.mrna[k],x,yRNA+5);
+        ctx.strokeStyle='rgba(104,211,145,.3)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,yTemp+8); ctx.lineTo(x,yRNA-8); ctx.stroke(); }
+    }
+    // polymerase
+    if(this.i<n){ const px=x0+sp*(this.i+.5); ctx.strokeStyle='#fc8181'; ctx.lineWidth=2; ctx.beginPath(); ctx.ellipse(px,(yTemp+yRNA)/2,sp*0.8,30,0,0,7); ctx.stroke();
+      ctx.fillStyle='rgba(252,129,129,.08)'; ctx.fill(); ctx.fillStyle='#fc8181'; ctx.font='9px Space Mono'; ctx.fillText('RNA Pol',px,(yTemp+yRNA)/2-36); }
+    ctx.fillStyle='#718096'; ctx.font='10px Space Mono'; ctx.textAlign='left';
+    ctx.fillText("5′ coding",4,yTop+4); ctx.fillText("3′ template",4,yTemp+4); ctx.fillText("5′ mRNA",4,yRNA+4);
+  },
+  cleanup(){}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// CHEMISTRY — REACTION RATES (Collision Theory)
+// ═══════════════════════════════════════════════════════════════
+const ReactionExp = {
+  shortName:'Reaction Rates', badge:'EXP-C03: REACTION RATES',
+  title:'Reaction Rates & Collision Theory',
+  desc:'Concentration, temperature and a catalyst change how often particles collide with enough energy to react.',
+  steps:['Set reactant concentration','Set temperature','Toggle catalyst','Observe successful collisions','Read the reaction rate'],
+  hints:[
+    'More particles (higher concentration) → more collisions per second.',
+    'Higher temperature → faster particles → more collisions above activation energy.',
+    'A catalyst lowers activation energy, so more collisions succeed.',
+    'Green flashes = successful (reactive) collisions.',
+    'Rate ∝ frequency of successful collisions.'],
+  labels:[{id:'lbl-a',text:'Reaction vessel',top:'10%',left:'40%'}],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Concentration <span id="rx-c-v">40</span></div><input type="range" id="rx-conc" min="10" max="90" value="40" oninput="ReactionExp.upd()"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Temperature <span id="rx-t-v">300K</span></div><input type="range" id="rx-temp" min="250" max="600" value="300" oninput="ReactionExp.upd()"></div>
+    <button class="btn" id="rx-cat" onclick="ReactionExp.toggleCat()">ADD CATALYST</button>`,
+  readings:[{id:'rx-rate',label:'Rate',unit:'/s'},{id:'rx-coll',label:'Collisions',unit:''},{id:'rx-succ',label:'Successful',unit:''},{id:'rx-ea',label:'Act. energy',unit:''}],
+  init(){
+    const s=setup2D(); this.s=s; this.cat=false; this.parts=[]; this.coll=0; this.succ=0; this._win=[]; this.flashes=[];
+    this.spawn(); this.upd(); const self=this; (function loop(){ self.draw(); APP.animId=requestAnimationFrame(loop); })();
+  },
+  spawn(){ const {W,H}=this.s; const n=+document.getElementById('rx-conc').value/3|0; this.parts=[]; for(let i=0;i<n;i++) this.parts.push({x:rnd(40,W-40),y:rnd(60,H-40),vx:rnd(-1,1),vy:rnd(-1,1),r:5}); },
+  toggleCat(){ this.cat=!this.cat; document.getElementById('rx-cat').className='btn'+(this.cat?' primary':''); document.getElementById('rx-cat').textContent=this.cat?'REMOVE CATALYST':'ADD CATALYST'; addLog(this.cat?'Catalyst added — Ea lowered':'Catalyst removed','log-warn'); this.upd(); setStep(3,this.hints); },
+  upd(){
+    const C=+document.getElementById('rx-conc').value, T=+document.getElementById('rx-temp').value;
+    document.getElementById('rx-c-v').textContent=C; document.getElementById('rx-t-v').textContent=T+'K';
+    this.Ea=this.cat?30:55; this.speed=Math.sqrt(T)/12; this.spawn();
+    rv('rx-ea',this.Ea+(this.cat?' (cat)':''),this.cat?'good':'warn');
+    if(C<30) setStep(0,this.hints); else if(T<350) setStep(1,this.hints); else setStep(4,this.hints);
+  },
+  draw(){
+    const {ctx,W,H}=this.s; ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='rgba(99,179,237,.3)'; ctx.lineWidth=2; ctx.strokeRect(30,50,W-60,H-90);
+    const T=+document.getElementById('rx-temp').value, sp=this.speed;
+    // move + collide
+    for(let i=0;i<this.parts.length;i++){ const p=this.parts[i];
+      p.x+=p.vx*sp; p.y+=p.vy*sp;
+      if(p.x<36||p.x>W-36)p.vx*=-1; if(p.y<56||p.y>H-46)p.vy*=-1;
+      p.x=clamp(p.x,36,W-36); p.y=clamp(p.y,56,H-46);
+      for(let j=i+1;j<this.parts.length;j++){ const q=this.parts[j]; const dx=q.x-p.x,dy=q.y-p.y,d=Math.hypot(dx,dy);
+        if(d<p.r+q.r){ this.coll++; [p.vx,q.vx]=[q.vx,p.vx]; [p.vy,q.vy]=[q.vy,p.vy];
+          const KE=0.5*(p.vx*p.vx+p.vy*p.vy+q.vx*q.vx+q.vy*q.vy)*sp*sp*50 + T*0.08;
+          if(KE>this.Ea){ this.succ++; this.flashes.push({x:(p.x+q.x)/2,y:(p.y+q.y)/2,a:1}); }
+        } }
+      ctx.fillStyle='#63b3ed'; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill();
+    }
+    this.flashes=this.flashes.filter(f=>{ ctx.fillStyle=`rgba(104,211,145,${f.a})`; ctx.beginPath(); ctx.arc(f.x,f.y,8*(1-f.a)+3,0,7); ctx.fill(); f.a-=0.05; return f.a>0; });
+    this._win.push(this.succ); if(this._win.length>60)this._win.shift();
+    const rate=(this.succ-(this._win[0]||0))/(this._win.length/60);
+    rv('rx-coll',this.coll); rv('rx-succ',this.succ); rv('rx-rate',Math.max(0,rate).toFixed(1),'good');
+  },
+  cleanup(){}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// CHEMISTRY — FLAME TEST
+// ═══════════════════════════════════════════════════════════════
+const FlameExp = {
+  shortName:'Flame Test', badge:'EXP-C04: FLAME TEST',
+  title:'Flame Test — Metal Ion Identification',
+  desc:'Heat a metal salt in a Bunsen flame. Electrons excite and emit a characteristic colour as they fall back.',
+  steps:['Light the Bunsen burner','Select a metal salt','Insert the loop into the flame','Observe the emission colour','Identify the metal ion'],
+  hints:[
+    'A clean blue Bunsen flame is the baseline.',
+    'Each metal ion gives a signature colour.',
+    'Heat excites electrons to higher energy levels.',
+    'Falling electrons emit photons of a specific wavelength = colour.',
+    'Match the colour: Na=yellow, K=lilac, Cu=green, Ca=orange-red, Li=crimson.'],
+  labels:[{id:'lbl-a',text:'Bunsen flame',top:'40%',left:'46%'}],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Metal salt</div>
+      <select id="fl-metal" onchange="FlameExp.upd()">
+        <option value="none">— none (clean flame) —</option>
+        <option value="Na">Sodium (Na⁺)</option><option value="K">Potassium (K⁺)</option>
+        <option value="Cu">Copper (Cu²⁺)</option><option value="Ca">Calcium (Ca²⁺)</option>
+        <option value="Li">Lithium (Li⁺)</option><option value="Ba">Barium (Ba²⁺)</option>
+      </select></div>`,
+  readings:[{id:'fl-ion',label:'Ion',unit:''},{id:'fl-col',label:'Flame colour',unit:''},{id:'fl-wl',label:'λ approx',unit:'nm'},{id:'fl-id',label:'Match',unit:''}],
+  init(){ const s=setup2D(); this.s=s; this._t=0; this.upd(); const self=this; (function loop(){ self.draw(); APP.animId=requestAnimationFrame(loop); })(); },
+  data:{none:{c:'#7ab8ff',n:'clean blue',wl:'—'},Na:{c:'#ffd23f',n:'golden yellow',wl:'589'},K:{c:'#c89bf0',n:'lilac',wl:'766'},Cu:{c:'#5ee6a8',n:'blue-green',wl:'525'},Ca:{c:'#ff7a45',n:'orange-red',wl:'622'},Li:{c:'#ff4d6d',n:'crimson',wl:'671'},Ba:{c:'#9ae66e',n:'pale green',wl:'553'}},
+  upd(){
+    const m=document.getElementById('fl-metal').value, d=this.data[m];
+    rv('fl-ion',m==='none'?'—':m,'warn'); rv('fl-col',d.n); rv('fl-wl',d.wl); rv('fl-id',m==='none'?'—':'✓ '+m,'good');
+    if(m==='none') setStep(0,this.hints); else setStep(4,this.hints);
+    if(m!=='none') addLog('Flame colour: '+d.n+' → '+m+' ion','log-entry');
+  },
+  draw(){
+    const {ctx,W,H}=this.s; ctx.clearRect(0,0,W,H); this._t++;
+    const m=document.getElementById('fl-metal').value, col=this.data[m].c;
+    const bx=W/2, by=H-70;
+    // burner
+    ctx.fillStyle='#2d3748'; ctx.fillRect(bx-8,by,16,60); ctx.fillRect(bx-22,by+56,44,8);
+    // flame (flickering)
+    const fh=160+Math.sin(this._t*0.2)*8;
+    for(let i=0;i<3;i++){ const w=(34-i*9)+Math.sin(this._t*0.3+i)*3;
+      const g=ctx.createLinearGradient(bx,by,bx,by-fh); g.addColorStop(0,col); g.addColorStop(1,'transparent');
+      ctx.fillStyle=g; ctx.globalAlpha=0.5-i*0.1;
+      ctx.beginPath(); ctx.moveTo(bx-w,by); ctx.quadraticCurveTo(bx-w*0.5,by-fh*0.6,bx,by-fh+i*30); ctx.quadraticCurveTo(bx+w*0.5,by-fh*0.6,bx+w,by); ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+    // inner blue cone
+    ctx.fillStyle='rgba(99,179,237,.6)'; ctx.beginPath(); ctx.moveTo(bx-10,by); ctx.quadraticCurveTo(bx,by-50,bx+10,by); ctx.fill();
+    ctx.fillStyle='#718096'; ctx.font='11px Space Mono'; ctx.textAlign='center'; ctx.fillText(m==='none'?'Select a salt':this.data[m].n.toUpperCase(),bx,40);
+  },
+  cleanup(){}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// PHYSICS — SIMPLE PENDULUM
+// ═══════════════════════════════════════════════════════════════
+const PendulumExp = {
+  shortName:'Pendulum', badge:'EXP-P03: SIMPLE PENDULUM',
+  title:'Simple Pendulum — T = 2π√(L/g)',
+  desc:'Vary length, gravity and starting angle. Confirm the period depends on length, not mass or (small) amplitude.',
+  steps:['Set the pendulum length','Set gravity (planet)','Pull to a start angle','Release and time the swing','Verify T = 2π√(L/g)'],
+  hints:[
+    'Longer string → longer period.',
+    'Stronger gravity → shorter period.',
+    'Small-angle swings are near-perfect SHM.',
+    'Period is independent of mass.',
+    'T = 2π√(L/g). Check the measured vs theoretical period.'],
+  labels:[{id:'lbl-a',text:'Pivot',top:'10%',left:'48%'}],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Length L <span id="pd-l-v">1.0 m</span></div><input type="range" id="pd-len" min="20" max="100" value="60" oninput="PendulumExp.upd()"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Gravity g <span id="pd-g-v">9.8</span></div><input type="range" id="pd-grav" min="16" max="246" value="98" oninput="PendulumExp.upd()"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Start angle <span id="pd-a-v">30°</span></div><input type="range" id="pd-ang" min="5" max="80" value="30" oninput="PendulumExp.upd()"></div>
+    <button class="btn primary" onclick="PendulumExp.release()">RELEASE</button>`,
+  readings:[{id:'pd-T',label:'Period (theory)',unit:'s'},{id:'pd-Tm',label:'Measured T',unit:'s'},{id:'pd-len-r',label:'Length',unit:'m'},{id:'pd-g-r',label:'g',unit:'m/s²'}],
+  init(){ const s=setup2D(); this.s=s; this.theta=0.5; this.omega=0; this.swinging=false; this._cross=[]; this.upd(); const self=this; this._last=performance.now(); (function loop(t){ self.step(t); APP.animId=requestAnimationFrame(loop); })(performance.now()); },
+  upd(){
+    const L=+document.getElementById('pd-len').value/60, g=+document.getElementById('pd-grav').value/10, A=+document.getElementById('pd-ang').value;
+    document.getElementById('pd-l-v').textContent=L.toFixed(2)+' m'; document.getElementById('pd-g-v').textContent=g.toFixed(1); document.getElementById('pd-a-v').textContent=A+'°';
+    this.L=L; this.g=g; this.A=A*Math.PI/180;
+    const T=2*Math.PI*Math.sqrt(L/g); rv('pd-T',T.toFixed(2),'good'); rv('pd-len-r',L.toFixed(2)); rv('pd-g-r',g.toFixed(1));
+    if(!this.swinging){ this.theta=this.A; this.omega=0; }
+  },
+  release(){ this.theta=this.A; this.omega=0; this.swinging=true; this._cross=[]; addLog('Released from '+document.getElementById('pd-ang').value+'°','log-entry'); setStep(3,this.hints); },
+  step(t){
+    const dt=Math.min(0.03,(t-this._last)/1000); this._last=t;
+    if(this.swinging){ const a=-(this.g/this.L)*Math.sin(this.theta); this.omega+=a*dt; this.omega*=0.9995; this.theta+=this.omega*dt;
+      // measure period via zero crossings
+      if(this._pt!==undefined && Math.sign(this.theta)!==Math.sign(this._pt)){ this._cross.push(t); if(this._cross.length>2){ const T=(this._cross[this._cross.length-1]-this._cross[this._cross.length-3])/1000; rv('pd-Tm',T.toFixed(2),'warn'); setStep(4,this.hints);} }
+      this._pt=this.theta;
+    }
+    this.draw();
+  },
+  draw(){
+    const {ctx,W,H}=this.s; ctx.clearRect(0,0,W,H);
+    const px=W/2, py=60, len=this.L*220;
+    const bx=px+Math.sin(this.theta)*len, by=py+Math.cos(this.theta)*len;
+    // arc guide
+    ctx.strokeStyle='rgba(99,179,237,.15)'; ctx.setLineDash([3,4]); ctx.beginPath(); ctx.arc(px,py,len,Math.PI/2-this.A,Math.PI/2+this.A); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle='#718096'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(bx,by); ctx.stroke();
+    ctx.fillStyle='#2d3748'; ctx.fillRect(px-30,py-8,60,8);
+    const g=ctx.createRadialGradient(bx-4,by-4,2,bx,by,18); g.addColorStop(0,'#90cdf4'); g.addColorStop(1,'#3182ce');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(bx,by,16,0,7); ctx.fill();
+    ctx.fillStyle='#718096'; ctx.font='10px Space Mono'; ctx.textAlign='center'; ctx.fillText('θ='+(this.theta*180/Math.PI).toFixed(0)+'°',px,py+len+30);
+  },
+  cleanup(){}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// PHYSICS — LENS & OPTICS
+// ═══════════════════════════════════════════════════════════════
+const OpticsExp = {
+  shortName:'Optics', badge:'EXP-P04: LENS & OPTICS',
+  title:'Converging Lens — Ray Diagram',
+  desc:'Move the object and change focal length. Trace three principal rays and locate the image; read 1/f = 1/v − 1/u.',
+  steps:['Set the focal length','Place the object beyond 2F','Trace the principal rays','Locate the image','Read magnification & image type'],
+  hints:[
+    'Focal length f sets the focal points F on each side.',
+    'Object beyond 2F gives a small, real, inverted image.',
+    'Ray 1: parallel → through F. Ray 2: through centre, straight. Ray 3: through F → parallel.',
+    'Rays converge at the image position.',
+    'm = −v/u. Negative m = inverted real image.'],
+  labels:[{id:'lbl-a',text:'Converging lens',top:'8%',left:'47%'}],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Focal length f <span id="op-f-v">80</span></div><input type="range" id="op-f" min="40" max="160" value="80" oninput="OpticsExp.upd()"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Object distance u <span id="op-u-v">240</span></div><input type="range" id="op-u" min="60" max="340" value="240" oninput="OpticsExp.upd()"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Object height <span id="op-h-v">60</span></div><input type="range" id="op-h" min="20" max="90" value="60" oninput="OpticsExp.upd()"></div>`,
+  readings:[{id:'op-v',label:'Image dist v',unit:'px'},{id:'op-m',label:'Magnification',unit:'×'},{id:'op-type',label:'Image',unit:''},{id:'op-f-r',label:'Focal len',unit:'px'}],
+  init(){ const s=setup2D(); this.s=s; this.upd(); const self=this; (function loop(){ self.draw(); APP.animId=requestAnimationFrame(loop); })(); },
+  upd(){
+    const f=+document.getElementById('op-f').value, u=+document.getElementById('op-u').value, h=+document.getElementById('op-h').value;
+    document.getElementById('op-f-v').textContent=f; document.getElementById('op-u-v').textContent=u; document.getElementById('op-h-v').textContent=h;
+    this.f=f; this.u=u; this.h=h;
+    // 1/v = 1/f - 1/u  (sign: u positive)
+    const v = (u===f)?1e9 : 1/(1/f - 1/u);
+    this.v=v; this.m=-v/u;
+    rv('op-v',isFinite(v)?v.toFixed(0):'∞'); rv('op-m',this.m.toFixed(2),'warn'); rv('op-f-r',f);
+    rv('op-type', v>0?'real, inverted':'virtual, upright', v>0?'good':'warn');
+    setStep(u>2*f?3:2,this.hints);
+  },
+  draw(){
+    const {ctx,W,H}=this.s; ctx.clearRect(0,0,W,H);
+    const cx=W*0.45, ax=H/2, f=this.f, u=this.u, h=this.h, v=this.v, m=this.m;
+    // axis + lens
+    ctx.strokeStyle='rgba(226,232,240,.25)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(20,ax); ctx.lineTo(W-20,ax); ctx.stroke();
+    ctx.strokeStyle='#63b3ed'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(cx,ax-150); ctx.lineTo(cx,ax+150); ctx.stroke();
+    ctx.fillStyle='#63b3ed'; ctx.font='9px Space Mono'; ctx.textAlign='center';
+    [[-f,'F'],[f,'F'],[-2*f,'2F'],[2*f,'2F']].forEach(([d,l])=>{ ctx.fillStyle='#f6ad55'; ctx.beginPath(); ctx.arc(cx+d,ax,3,0,7); ctx.fill(); ctx.fillText(l,cx+d,ax+16); });
+    // object (left, upright)
+    const ox=cx-u, oy=ax-h;
+    ctx.strokeStyle='#68d391'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(ox,ax); ctx.lineTo(ox,oy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(ox-5,oy+8); ctx.lineTo(ox+5,oy+8); ctx.fill();
+    // rays
+    ctx.lineWidth=1;
+    // ray1: parallel to axis then through F (right)
+    ctx.strokeStyle='rgba(252,129,129,.8)'; ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(cx,oy); ctx.lineTo(W-20,oy+( (W-20-cx)/f )*(ax-oy)); ctx.stroke();
+    // ray2: through centre
+    ctx.strokeStyle='rgba(99,179,237,.8)'; ctx.beginPath(); ctx.moveTo(ox,oy); const sl=(ax-oy)/(cx-ox); ctx.lineTo(W-20,oy+sl*(W-20-ox)); ctx.stroke();
+    // image
+    if(isFinite(v)&&v>0){ const ix=cx+v, ih=h*Math.abs(m); const iy=ax+ih; // inverted (below axis)
+      ctx.strokeStyle='#f6ad55'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(ix,ax); ctx.lineTo(ix,iy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ix,iy); ctx.lineTo(ix-5,iy-8); ctx.lineTo(ix+5,iy-8); ctx.fill();
+      ctx.fillStyle='#f6ad55'; ctx.fillText('image',ix,iy+16); }
+    ctx.fillStyle='#68d391'; ctx.fillText('object',ox,oy-8);
+  },
+  cleanup(){}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// PHYSICS — 2D COLLISIONS
+// ═══════════════════════════════════════════════════════════════
+const CollisionExp = {
+  shortName:'Collisions', badge:'EXP-P05: 2D COLLISIONS',
+  title:'Conservation of Momentum — Collisions',
+  desc:'Two pucks collide. Set masses, velocities and elasticity; momentum is always conserved, KE only if elastic.',
+  steps:['Set the masses','Set initial velocities','Choose elasticity','Launch the collision','Check momentum & KE conservation'],
+  hints:[
+    'Momentum p = mv is conserved in every collision.',
+    'Give the pucks opposite or chasing velocities.',
+    'Elastic (e=1) conserves KE; inelastic loses it to heat/sound.',
+    'Watch total momentum stay constant before vs after.',
+    'Compare KE before and after for your elasticity setting.'],
+  labels:[{id:'lbl-a',text:'Puck A',top:'40%',left:'18%'},{id:'lbl-b',text:'Puck B',top:'40%',left:'72%'}],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Mass A <span id="co-ma-v">2</span></div><input type="range" id="co-ma" min="1" max="6" value="2" oninput="CollisionExp.upd()"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Mass B <span id="co-mb-v">3</span></div><input type="range" id="co-mb" min="1" max="6" value="3" oninput="CollisionExp.upd()"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Velocity A <span id="co-va-v">3</span></div><input type="range" id="co-va" min="0" max="6" value="3" oninput="CollisionExp.upd()"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Velocity B <span id="co-vb-v">-2</span></div><input type="range" id="co-vb" min="-6" max="0" value="-2" oninput="CollisionExp.upd()"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Elasticity e <span id="co-e-v">1.0</span></div><input type="range" id="co-e" min="0" max="10" value="10" oninput="CollisionExp.upd()"></div>
+    <button class="btn primary" onclick="CollisionExp.launch()">LAUNCH</button>`,
+  readings:[{id:'co-p',label:'Total p',unit:''},{id:'co-ke',label:'Total KE',unit:''},{id:'co-p0',label:'p before',unit:''},{id:'co-ke0',label:'KE before',unit:''}],
+  init(){ const s=setup2D(); this.s=s; this.upd(); this.reset(); const self=this; (function loop(){ self.step(); APP.animId=requestAnimationFrame(loop); })(); },
+  upd(){ ['ma','mb','va','vb'].forEach(k=>document.getElementById('co-'+k+'-v').textContent=document.getElementById('co-'+k).value); document.getElementById('co-e-v').textContent=(+document.getElementById('co-e').value/10).toFixed(1); if(!this.running)this.reset(); },
+  reset(){ const {W,H}=this.s; this.A={x:W*0.2,y:H/2,m:+document.getElementById('co-ma').value,v:0,r:0}; this.B={x:W*0.8,y:H/2,m:+document.getElementById('co-mb').value,v:0,r:0}; this.A.r=8+this.A.m*4; this.B.r=8+this.B.m*4; this.running=false; this.done=false; this.report(true); },
+  launch(){ this.A.v=+document.getElementById('co-va').value; this.B.v=+document.getElementById('co-vb').value; this.running=true; this.done=false; this.p0=this.A.m*this.A.v+this.B.m*this.B.v; this.ke0=0.5*this.A.m*this.A.v**2+0.5*this.B.m*this.B.v**2; rv('co-p0',this.p0.toFixed(1)); rv('co-ke0',this.ke0.toFixed(1)); addLog('Launched','log-entry'); setStep(3,this.hints); },
+  report(){ const p=this.A.m*this.A.v+this.B.m*this.B.v, ke=0.5*this.A.m*this.A.v**2+0.5*this.B.m*this.B.v**2; rv('co-p',p.toFixed(1),'good'); rv('co-ke',ke.toFixed(1),'warn'); },
+  step(){
+    const {ctx,W,H}=this.s;
+    if(this.running){ this.A.x+=this.A.v; this.B.x+=this.B.v;
+      if(this.A.x+this.A.r>this.B.x-this.B.r && !this.done && this.A.x<this.B.x){
+        const e=+document.getElementById('co-e').value/10, m1=this.A.m,m2=this.B.m,u1=this.A.v,u2=this.B.v;
+        // 1D elastic/inelastic with restitution e
+        this.A.v=(m1*u1+m2*u2 - m2*e*(u1-u2))/(m1+m2);
+        this.B.v=(m1*u1+m2*u2 + m1*e*(u1-u2))/(m1+m2);
+        this.done=true; this.report(); setStep(4,this.hints);
+        const ke=0.5*m1*this.A.v**2+0.5*m2*this.B.v**2; addLog('Collision: KE '+this.ke0.toFixed(1)+'→'+ke.toFixed(1)+(e<1?' (lost to heat)':' (conserved)'),'log-entry');
+      }
+      if(this.A.x<this.A.r||this.A.x>W-this.A.r||this.B.x<this.B.r||this.B.x>W-this.B.r) this.running=false;
+    }
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='rgba(226,232,240,.2)'; ctx.beginPath(); ctx.moveTo(20,H/2); ctx.lineTo(W-20,H/2); ctx.stroke();
+    [[this.A,'#63b3ed','A'],[this.B,'#f6ad55','B']].forEach(([o,c,l])=>{ const g=ctx.createRadialGradient(o.x-4,o.y-4,2,o.x,o.y,o.r); g.addColorStop(0,'#fff'); g.addColorStop(0.3,c); g.addColorStop(1,c); ctx.fillStyle=c; ctx.beginPath(); ctx.arc(o.x,o.y,o.r,0,7); ctx.fill(); ctx.fillStyle='#0a0e1a'; ctx.font='bold 11px Space Mono'; ctx.textAlign='center'; ctx.fillText(l,o.x,o.y+4);
+      if(Math.abs(o.v)>0.1){ ctx.strokeStyle=c; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(o.x,o.y-o.r-6); ctx.lineTo(o.x+o.v*8,o.y-o.r-6); ctx.stroke(); } });
+  },
+  cleanup(){}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ELECTRONICS — RC CIRCUIT
+// ═══════════════════════════════════════════════════════════════
+const RCExp = {
+  shortName:'RC Circuit', badge:'EXP-X01: RC CIRCUIT',
+  title:'RC Charging & Discharging',
+  desc:'A capacitor charges through a resistor: V = V₀(1 − e^(−t/RC)). Vary R and C to change the time constant τ.',
+  steps:['Set resistance R','Set capacitance C','Press CHARGE — watch V rise','Note τ = RC (63% point)','Press DISCHARGE — exponential decay'],
+  hints:[
+    'Larger R slows current → slower charging.',
+    'Larger C stores more charge → slower charging. τ = R·C.',
+    'Voltage rises fast then levels off toward V₀.',
+    'At t = τ the capacitor reaches 63% of V₀.',
+    'Discharging follows V = V₀·e^(−t/RC).'],
+  labels:[{id:'lbl-a',text:'Capacitor',top:'30%',left:'62%'}],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Resistance R <span id="rc-r-v">100kΩ</span></div><input type="range" id="rc-r" min="10" max="200" value="100" oninput="RCExp.upd()"></div>
+    <div class="ctrl-row"><div class="ctrl-label">Capacitance C <span id="rc-c-v">10µF</span></div><input type="range" id="rc-c" min="1" max="50" value="10" oninput="RCExp.upd()"></div>
+    <button class="btn primary" onclick="RCExp.charge()">CHARGE</button>
+    <button class="btn" onclick="RCExp.discharge()">DISCHARGE</button>`,
+  readings:[{id:'rc-v',label:'Capacitor V',unit:'V'},{id:'rc-tau',label:'τ = RC',unit:'s'},{id:'rc-pct',label:'% of V₀',unit:'%'},{id:'rc-mode',label:'Mode',unit:''}],
+  init(){ const s=setup2D(); this.s=s; this.V=0; this.V0=9; this.t=0; this.mode='idle'; this.hist=[]; this.upd(); const self=this; this._last=performance.now(); (function loop(t){ self.step(t); APP.animId=requestAnimationFrame(loop); })(performance.now()); },
+  upd(){ const R=+document.getElementById('rc-r').value, C=+document.getElementById('rc-c').value; document.getElementById('rc-r-v').textContent=R+'kΩ'; document.getElementById('rc-c-v').textContent=C+'µF'; this.tau=R*1000*C*1e-6; rv('rc-tau',this.tau.toFixed(2)); },
+  charge(){ this.mode='charge'; this.t=0; this.hist=[]; rv('rc-mode','charging','good'); addLog('Charging, τ='+this.tau.toFixed(2)+'s','log-entry'); setStep(2,this.hints); },
+  discharge(){ this.mode='discharge'; this.t=0; this.hist=[]; rv('rc-mode','discharging','warn'); addLog('Discharging','log-warn'); setStep(4,this.hints); },
+  step(tnow){
+    const dt=Math.min(0.05,(tnow-this._last)/1000); this._last=tnow;
+    if(this.mode==='charge'){ this.t+=dt; this.V=this.V0*(1-Math.exp(-this.t/this.tau)); if(this.t>this.tau*0.99&&this.t<this.tau*0.99+dt*2) setStep(3,this.hints); }
+    else if(this.mode==='discharge'){ this.t+=dt; this.V=this.V0*Math.exp(-this.t/this.tau); if(this.V<0.05)this.mode='idle'; }
+    rv('rc-v',this.V.toFixed(2),'good'); rv('rc-pct',(this.V/this.V0*100).toFixed(0));
+    this.hist.push(this.V); if(this.hist.length>300)this.hist.shift();
+    this.draw();
+  },
+  draw(){
+    const {ctx,W,H}=this.s; ctx.clearRect(0,0,W,H);
+    // circuit
+    const x=60,y=60,w=W*0.4,h=H*0.4;
+    ctx.strokeStyle='#63b3ed'; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
+    // battery
+    ctx.lineWidth=2; ctx.strokeStyle='#68d391'; ctx.beginPath(); ctx.moveTo(x,y+h/2-10); ctx.lineTo(x,y+h/2+10); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x-5,y+h/2-5); ctx.lineTo(x-5,y+h/2+5); ctx.stroke();
+    ctx.fillStyle='#68d391'; ctx.font='9px Space Mono'; ctx.fillText(this.V0+'V',x-22,y+h/2);
+    // resistor (top zigzag)
+    ctx.strokeStyle='#f6ad55'; ctx.beginPath(); let zx=x+w*0.3; ctx.moveTo(x+w*0.2,y); for(let i=0;i<6;i++){ctx.lineTo(zx,y+(i%2?6:-6));zx+=8;} ctx.lineTo(x+w*0.6,y); ctx.stroke(); ctx.fillStyle='#f6ad55'; ctx.fillText('R',x+w*0.4,y-6);
+    // capacitor (right) — fill ∝ V
+    const cap=x+w; ctx.strokeStyle='#b794f4'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(cap-8,y+h/2-12); ctx.lineTo(cap+8,y+h/2-12); ctx.moveTo(cap-8,y+h/2+12); ctx.lineTo(cap+8,y+h/2+12); ctx.stroke();
+    ctx.fillStyle=`rgba(183,148,244,${this.V/this.V0})`; ctx.fillRect(cap-8,y+h/2-12,16,24);
+    ctx.fillStyle='#b794f4'; ctx.fillText('C',cap+14,y+h/2);
+    // graph
+    const gx=60,gy=H-40,gw=W-120,gh=H*0.32;
+    ctx.strokeStyle='rgba(99,179,237,.4)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(gx,gy-gh); ctx.lineTo(gx,gy); ctx.lineTo(gx+gw,gy); ctx.stroke();
+    ctx.strokeStyle='rgba(104,211,145,.3)'; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(gx,gy-gh*0.63); ctx.lineTo(gx+gw,gy-gh*0.63); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle='#68d391'; ctx.fillText('63% (τ)',gx+4,gy-gh*0.63-4);
+    ctx.beginPath(); ctx.strokeStyle='#b794f4'; ctx.lineWidth=2; this.hist.forEach((v,i)=>{ const px=gx+gw*(i/300), py=gy-gh*(v/this.V0); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }); ctx.stroke();
+    ctx.fillStyle='#718096'; ctx.fillText('V vs t',gx+gw/2,gy+16);
+  },
+  cleanup(){}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ELECTRONICS — LOGIC GATES
+// ═══════════════════════════════════════════════════════════════
+const LogicExp = {
+  shortName:'Logic Gates', badge:'EXP-X02: LOGIC GATES',
+  title:'Digital Logic Gates & Truth Tables',
+  desc:'Toggle two inputs and pick a gate. Watch the output and the live truth-table row light up.',
+  steps:['Select a logic gate','Toggle input A','Toggle input B','Read the output','Compare against the truth table'],
+  hints:[
+    'AND = 1 only if both inputs are 1.',
+    'Toggle A by clicking its switch.',
+    'OR = 1 if either input is 1; XOR = 1 if they differ.',
+    'NOT/NAND/NOR invert the result.',
+    'The highlighted row matches your current A,B.'],
+  labels:[{id:'lbl-a',text:'Inputs',top:'30%',left:'8%'},{id:'lbl-b',text:'Output',top:'30%',left:'78%'}],
+  controlsHTML:`
+    <div class="ctrl-row"><div class="ctrl-label">Gate</div>
+      <select id="lg-gate" onchange="LogicExp.upd()"><option>AND</option><option>OR</option><option>NOT</option><option>NAND</option><option>NOR</option><option>XOR</option><option>XNOR</option></select></div>
+    <button class="btn" id="lg-a" onclick="LogicExp.tog('a')">INPUT A: 0</button>
+    <button class="btn" id="lg-b" onclick="LogicExp.tog('b')">INPUT B: 0</button>`,
+  readings:[{id:'lg-out',label:'Output Q',unit:''},{id:'lg-gate-r',label:'Gate',unit:''},{id:'lg-a-r',label:'A',unit:''},{id:'lg-b-r',label:'B',unit:''}],
+  init(){ const s=setup2D(); this.s=s; this.a=0; this.b=0; this.upd(); const self=this; (function loop(){ self.draw(); APP.animId=requestAnimationFrame(loop); })(); },
+  tog(w){ this[w]^=1; document.getElementById('lg-'+w).textContent='INPUT '+w.toUpperCase()+': '+this[w]; document.getElementById('lg-'+w).className='btn'+(this[w]?' primary':''); this.upd(); setStep(w==='a'?2:3,this.hints); },
+  calc(a,b,g){ switch(g){case 'AND':return a&b;case 'OR':return a|b;case 'NOT':return a?0:1;case 'NAND':return (a&b)?0:1;case 'NOR':return (a|b)?0:1;case 'XOR':return a^b;case 'XNOR':return (a^b)?0:1;} },
+  upd(){ const g=document.getElementById('lg-gate').value; this.out=this.calc(this.a,this.b,g); rv('lg-out',this.out,this.out?'good':'warn'); rv('lg-gate-r',g); rv('lg-a-r',this.a); rv('lg-b-r',g==='NOT'?'—':this.b); if(g!=='NOT') setStep(4,this.hints); },
+  draw(){
+    const {ctx,W,H}=this.s; ctx.clearRect(0,0,W,H);
+    const g=document.getElementById('lg-gate').value, gx=W/2, gy=H*0.4, ia=this.a,ib=this.b,out=this.out;
+    const wire=(x1,y1,x2,y2,on)=>{ ctx.strokeStyle=on?'#68d391':'#4a5568'; ctx.lineWidth=on?3:2; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
+    const ay=gy-22, by=gy+22, lx=gx-150;
+    wire(lx,ay,gx-50,ay,ia);
+    if(g!=='NOT') wire(lx,by,gx-50,by,ib);
+    // gate body
+    ctx.fillStyle='#1a2236'; ctx.strokeStyle='#63b3ed'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(gx-50,gy-40); ctx.lineTo(gx-10,gy-40); ctx.quadraticCurveTo(gx+50,gy-40,gx+50,gy); ctx.quadraticCurveTo(gx+50,gy+40,gx-10,gy+40); ctx.lineTo(gx-50,gy+40); ctx.closePath(); ctx.fill(); ctx.stroke();
+    if(g==='NAND'||g==='NOR'||g==='NOT'||g==='XNOR'){ ctx.beginPath(); ctx.arc(gx+56,gy,6,0,7); ctx.stroke(); }
+    ctx.fillStyle='#63b3ed'; ctx.font='bold 13px Space Mono'; ctx.textAlign='center'; ctx.fillText(g,gx,gy+5);
+    wire(gx+62,gy,gx+150,gy,out);
+    // input/output bulbs
+    [[lx,ay,ia,'A'],[lx,by,g==='NOT'?null:ib,'B']].forEach(([x,y,v,l])=>{ if(v===null)return; ctx.fillStyle=v?'#68d391':'#2d3748'; ctx.beginPath(); ctx.arc(x-14,y,9,0,7); ctx.fill(); ctx.fillStyle='#e2e8f0'; ctx.font='10px Space Mono'; ctx.fillText(l+'='+v,x-14,y-14); });
+    ctx.fillStyle=out?'#68d391':'#2d3748'; ctx.beginPath(); ctx.arc(gx+164,gy,11,0,7); ctx.fill(); ctx.fillStyle='#e2e8f0'; ctx.fillText('Q='+out,gx+164,gy-18);
+    // truth table
+    const tx=W-150, ty=H-130; ctx.font='10px Space Mono'; ctx.textAlign='left';
+    ctx.fillStyle='#718096'; ctx.fillText(g+' truth table',tx,ty-8);
+    const rows = g==='NOT' ? [[0],[1]] : [[0,0],[0,1],[1,0],[1,1]];
+    rows.forEach((r,i)=>{ const y=ty+i*18; const ri=g==='NOT'?r[0]:r[0]*2+r[1]; const cur = g==='NOT'?(this.a===r[0]):(this.a===r[0]&&this.b===r[1]);
+      const o=g==='NOT'?this.calc(r[0],0,g):this.calc(r[0],r[1],g);
+      if(cur){ ctx.fillStyle='rgba(104,211,145,.15)'; ctx.fillRect(tx-4,y-12,140,16); }
+      ctx.fillStyle=cur?'#68d391':'#a0aec0'; ctx.fillText((g==='NOT'?('A='+r[0]):('A='+r[0]+' B='+r[1]))+'  → Q='+o,tx,y); });
+  },
+  cleanup(){}
+};
+
 // ─── SECTION & EXPERIMENT REGISTRY ──────────────────────────────────────────
 const SECTIONS = {
-  biology:     { icon:'🧬', label:'BIOLOGY',        color:'#68d391', exps:['bio/osmosis','bio/mitosis'] },
+  biology:     { icon:'🧬', label:'BIOLOGY',        color:'#68d391', exps:['bio/osmosis','bio/mitosis','bio/photosynthesis','bio/enzyme','bio/dna'] },
   thermo:      { icon:'🌡️', label:'THERMODYNAMICS', color:'#f6ad55', exps:['thermo/gas','thermo/heat'] },
   electricity: { icon:'⚡', label:'ELECTRICITY',    color:'#63b3ed', exps:['elec/ohm','elec/induction'] },
-  chemistry:   { icon:'⚗️', label:'CHEMISTRY',      color:'#b794f4', exps:['chem/titration','chem/electrolysis'] },
-  physics:     { icon:'🔭', label:'PHYSICS',         color:'#fc8181', exps:['phys/projectile','phys/waves'] },
+  chemistry:   { icon:'⚗️', label:'CHEMISTRY',      color:'#b794f4', exps:['chem/titration','chem/electrolysis','chem/reaction','chem/flame'] },
+  physics:     { icon:'🔭', label:'PHYSICS',         color:'#fc8181', exps:['phys/projectile','phys/waves','phys/pendulum','phys/optics','phys/collision'] },
+  electronics: { icon:'🔌', label:'ELECTRONICS',     color:'#4fd1c5', exps:['elec2/rc','elec2/logic'] },
 };
 
 const EXPERIMENTS = {
   'bio/osmosis':         OsmosisExp,
   'bio/mitosis':         MitosisExp,
+  'bio/photosynthesis':  PhotosynthesisExp,
+  'bio/enzyme':          EnzymeExp,
+  'bio/dna':             DNAExp,
   'thermo/gas':          GasExp,
   'thermo/heat':         HeatExp,
   'elec/ohm':            OhmExp,
   'elec/induction':      InductionExp,
   'chem/titration':      TitrationExp,
   'chem/electrolysis':   ElectrolysisExp,
+  'chem/reaction':       ReactionExp,
+  'chem/flame':          FlameExp,
   'phys/projectile':     ProjectileExp,
   'phys/waves':          WaveExp,
+  'phys/pendulum':       PendulumExp,
+  'phys/optics':         OpticsExp,
+  'phys/collision':      CollisionExp,
+  'elec2/rc':            RCExp,
+  'elec2/logic':         LogicExp,
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -1814,6 +2406,56 @@ const QUIZZES = {
     {q:'Constructive interference occurs when path difference equals…',options:['½λ','nλ','(n+½)λ','λ/4'],answer:1,explain:'Whole-wavelength path difference → crests align → bright.'},
     {q:'Destructive interference produces…',options:['Bright antinodes','Dark nodes','Higher frequency','Faster waves'],answer:1,explain:'Out-of-phase waves cancel → nodal (dark) lines.'},
     {q:'Increasing frequency (same speed) makes wavelength…',options:['Longer','Shorter','Unchanged','Zero'],answer:1,explain:'v = fλ → λ = v/f, so f↑ ⇒ λ↓.'},
+  ],
+  'bio/photosynthesis':[
+    {q:'The overall rate is set by…',options:['The largest input','The limiting (lowest) factor','Temperature only','Light only'],answer:1,explain:'Whichever factor is in shortest supply caps the rate.'},
+    {q:'What gas is produced and bubbles off?',options:['CO₂','Nitrogen','Oxygen','Hydrogen'],answer:2,explain:'6CO₂+6H₂O→C₆H₁₂O₆+6O₂. O₂ bubbles measure rate.'},
+    {q:'Very high temperature reduces the rate because…',options:['Too much light','Enzymes denature','CO₂ freezes','Water boils off'],answer:1,explain:'Above the optimum, enzymes denature and activity falls.'},
+  ],
+  'bio/enzyme':[
+    {q:'In v = Vmax·[S]/(Km+[S]), Km is…',options:['Max velocity','[S] at half Vmax','Enzyme mass','Temperature'],answer:1,explain:'Km = substrate concentration giving half-maximal velocity.'},
+    {q:'At very high [S] the velocity…',options:['Keeps rising linearly','Plateaus at Vmax','Drops to zero','Oscillates'],answer:1,explain:'Enzymes saturate, so v approaches Vmax.'},
+    {q:'A competitive inhibitor…',options:['Lowers Vmax','Raises apparent Km','Has no effect','Destroys the enzyme'],answer:1,explain:'It competes for the active site, raising apparent Km; Vmax unchanged.'},
+  ],
+  'bio/dna':[
+    {q:'In mRNA, which base replaces thymine?',options:['Uracil','Guanine','Cytosine','Adenine'],answer:0,explain:'RNA uses uracil (U); template A pairs with U.'},
+    {q:'A template base C produces which mRNA base?',options:['A','U','G','T'],answer:2,explain:'C pairs with G.'},
+    {q:'The enzyme that builds mRNA is…',options:['DNA polymerase','RNA polymerase','Ligase','Helicase'],answer:1,explain:'RNA polymerase reads the template and synthesises mRNA.'},
+  ],
+  'chem/reaction':[
+    {q:'Increasing concentration speeds reactions because…',options:['Particles move faster','More frequent collisions','Lower activation energy','Higher temperature'],answer:1,explain:'More particles per volume → more collisions per second.'},
+    {q:'A catalyst increases rate by…',options:['Raising temperature','Lowering activation energy','Adding reactant','Removing product'],answer:1,explain:'It provides a lower-Ea pathway, so more collisions succeed.'},
+    {q:'Only collisions with energy above Ea…',options:['Bounce off','React successfully','Cool down','Stop moving'],answer:1,explain:'Collision theory: energy ≥ Ea (and correct orientation) → reaction.'},
+  ],
+  'chem/flame':[
+    {q:'Sodium ions give which flame colour?',options:['Lilac','Golden yellow','Green','Crimson'],answer:1,explain:'Na⁺ → intense golden-yellow (589 nm).'},
+    {q:'The colour is emitted when excited electrons…',options:['Are removed','Fall back to lower levels','Split the atom','Absorb forever'],answer:1,explain:'Electrons relax to lower levels, emitting a characteristic photon.'},
+    {q:'Copper(II) ions typically give a…',options:['Blue-green flame','Yellow flame','Lilac flame','Colourless flame'],answer:0,explain:'Cu²⁺ → blue-green.'},
+  ],
+  'phys/pendulum':[
+    {q:'The period of a simple pendulum depends on…',options:['Mass','Amplitude (large)','Length & gravity','Colour'],answer:2,explain:'T = 2π√(L/g): length and g only (small-angle).'},
+    {q:'Quadrupling the length changes the period by…',options:['×2','×4','×½','no change'],answer:0,explain:'T ∝ √L, so ×4 length → ×2 period.'},
+    {q:'On the Moon (lower g) the period would…',options:['Decrease','Increase','Stay same','Become zero'],answer:1,explain:'Smaller g → larger T (T ∝ 1/√g).'},
+  ],
+  'phys/optics':[
+    {q:'The thin-lens equation is…',options:['1/f = 1/v − 1/u','f = uv','v = u + f','1/f = u·v'],answer:0,explain:'1/f = 1/v − 1/u for a thin lens.'},
+    {q:'An object beyond 2F forms an image that is…',options:['Larger, upright','Smaller, inverted, real','Virtual, upright','Same size'],answer:1,explain:'Beyond 2F → diminished, inverted, real image between F and 2F.'},
+    {q:'Negative magnification means the image is…',options:['Upright','Inverted','Bigger','Virtual'],answer:1,explain:'m = −v/u; negative = inverted (real) image.'},
+  ],
+  'phys/collision':[
+    {q:'Which quantity is conserved in ALL collisions?',options:['Kinetic energy','Momentum','Temperature','Height'],answer:1,explain:'Momentum is always conserved; KE only in elastic collisions.'},
+    {q:'A perfectly elastic collision conserves…',options:['Only momentum','Momentum and KE','Only KE','Neither'],answer:1,explain:'Elastic (e=1) conserves both momentum and kinetic energy.'},
+    {q:'In an inelastic collision the lost KE becomes…',options:['Extra momentum','Heat/sound/deformation','Light','Mass'],answer:1,explain:'KE converts to heat, sound and deformation; momentum still conserved.'},
+  ],
+  'elec2/rc':[
+    {q:'The time constant τ equals…',options:['R/C','R·C','R+C','C/R'],answer:1,explain:'τ = RC; larger R or C → slower charge/discharge.'},
+    {q:'At t = τ the capacitor charges to about…',options:['37%','50%','63%','100%'],answer:2,explain:'V = V₀(1−e⁻¹) ≈ 63% of V₀ at one time constant.'},
+    {q:'Discharging voltage follows…',options:['Linear decay','V₀·e^(−t/RC)','Constant','V₀·t'],answer:1,explain:'Exponential decay V = V₀·e^(−t/RC).'},
+  ],
+  'elec2/logic':[
+    {q:'An AND gate outputs 1 when…',options:['Either input is 1','Both inputs are 1','Inputs differ','Always'],answer:1,explain:'AND = 1 only if A AND B are both 1.'},
+    {q:'XOR outputs 1 when…',options:['Inputs are equal','Inputs differ','Both are 1','Both are 0'],answer:1,explain:'XOR = 1 when inputs differ (exclusive or).'},
+    {q:'A NAND gate is an AND followed by…',options:['An OR','A NOT (inverter)','Another AND','A buffer'],answer:1,explain:'NAND = NOT(AND); the bubble inverts the AND output.'},
   ],
 };
 
