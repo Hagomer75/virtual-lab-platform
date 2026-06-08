@@ -1,16 +1,19 @@
 # ⬡ Virtual Science Lab Platform
 
-Interactive science simulation lab — **5 sections, 10 experiments** — built with **Three.js WebGL** + **HTML5 Canvas 2D** in a single static HTML file. No build step.
+Interactive science simulation lab — **6 sections, 20 experiments** — built with **Three.js WebGL** + **HTML5 Canvas 2D** in a single static HTML file. No build step.
+
+**Live:** https://virtual-lab-platform-mauve.vercel.app
 
 ## Sections & Experiments
 
 | Section | Experiments |
 |---------|-------------|
-| 🧬 Biology | Osmosis · Mitosis |
+| 🧬 Biology | Osmosis · Mitosis · Photosynthesis · Enzyme Kinetics · DNA Transcription |
 | 🌡️ Thermodynamics | Ideal Gas Law · Heat Conduction |
 | ⚡ Electricity & Magnetism | Ohm's Law · EM Induction |
-| ⚗️ Chemistry (3D) | Acid-Base Titration · Electrolysis of Water |
-| 🔭 Physics | Projectile Motion · Wave Interference |
+| ⚗️ Chemistry (3D) | Acid-Base Titration · Electrolysis · Reaction Rates · Flame Test |
+| 🔭 Physics | Projectile Motion · Wave Interference · Pendulum · Optics · 2D Collisions |
+| 🔌 Electronics | RC Circuit · Logic Gates |
 
 ## Features
 
